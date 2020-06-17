@@ -16,6 +16,8 @@ from PIL import Image
 import math
 from common import *
 import pickle
+#import codecs
+#import fibridi
 
 def sample_weighted(p_dict):
     ps = list(p_dict.keys())
@@ -80,12 +82,12 @@ class RenderFont(object):
         Also, outputs ground-truth bounding boxes and text string
     """
 
-    def __init__(self, data_dir='data'):
+    def __init__(self, lang, data_dir='data'):
         # distribution over the type of text:
         # whether to get a single word, paragraph or a line:
-        self.p_text = {0.0 : 'WORD',
+        self.p_text = {1.0 : 'WORD',
                        0.0 : 'LINE',
-                       1.0 : 'PARA'}
+                       0.0 : 'PARA'}
 
         ## TEXT PLACEMENT PARAMETERS:
         self.f_shrink = 0.90
@@ -100,13 +102,13 @@ class RenderFont(object):
         # curved baseline:
         self.p_curved = 1.0
         self.baselinestate = BaselineState()
-
+        file_path = 'newsgroup/newsgroup'+lang+'.txt'
         # text-source : gets english text:
         self.text_source = TextSource(min_nchar=self.min_nchar,
-                                      fn=osp.join(data_dir,'newsgroup/newsgroup.txt'))
+                                      fn=osp.join(data_dir,file_path))
 
         # get font-state object:
-        self.font_state = FontState(data_dir)
+        self.font_state = FontState(lang,data_dir)
 
         pygame.init()
 
@@ -163,10 +165,12 @@ class RenderFont(object):
         #self.visualize_bb(surf_arr,bbs)
         return surf_arr, words, bbs
 
-    def render_curved(self, font, word_text):
+    def render_curved(self, font, word_text):#add lang
         """
         use curved baseline for rendering word
         """
+        #print(font)
+        #word_text = word_text.replace('\u200c,' ') for arab
         wl = len(word_text)
         isword = len(word_text.split())==1
 
@@ -174,6 +178,7 @@ class RenderFont(object):
         if not isword or wl > 10 or np.random.rand() > self.p_curved:
             return self.render_multiline(font, word_text)
 
+        #for arab word_text = fribidi.log2vis(word_text, None, fribidi.ParType.RTL)
         # create the surface:
         lspace = font.get_sized_height() + 1
         lbound = font.get_rect(word_text)
@@ -199,8 +204,13 @@ class RenderFont(object):
         mid_ch_bb = np.array(ch_bounds)
 
         # render chars to the left and right:
-        last_rect = rect
+        
         ch_idx = []
+        '''if lang == 'arab' or 'urdu':
+            bbs.append(mid_ch_bb)
+            ch_idx.append(0) for arab''' 
+
+        last_rect = rect
         for i in range(wl):
             #skip the middle character
             if i==mid_idx: 
@@ -246,6 +256,9 @@ class RenderFont(object):
         bbs = np.array(bbs)
         surf_arr, bbs = crop_safe(pygame.surfarray.pixels_alpha(surf), rect_union, bbs, pad=5)
         surf_arr = surf_arr.swapaxes(0,1)
+        #plt.imshow(surf_arr)
+        #plt.show()
+        #print(word_text)
         return surf_arr, word_text, bbs
 
 
@@ -358,13 +371,14 @@ class RenderFont(object):
 
             # compute the max-number of lines/chars-per-line:
             nline,nchar = self.get_nline_nchar(mask.shape[:2],f_h,f_h*f_asp)
-            #print "  > nline = %d, nchar = %d"%(nline, nchar)
+            #print ('  > nline = {}, nchar = {}'.format(nline, nchar))
 
             assert nline >= 1 and nchar >= self.min_nchar
 
             # sample text:
             text_type = sample_weighted(self.p_text)
             text = self.text_source.sample(nline,nchar,text_type)
+            #print(text)
             if len(text)==0 or np.any([len(line)==0 for line in text]):
                 continue
             #print colorize(Color.GREEN, text)
@@ -412,30 +426,34 @@ class FontState(object):
     random_kerning = 0.2
     random_kerning_amount = 0.1
 
-    def __init__(self, data_dir='data'):
+    def __init__(self, lang, data_dir='data', create_model=False):
 
-        char_freq_path = osp.join(data_dir, 'models/char_freq.cp')        
-        font_model_path = osp.join(data_dir, 'models/font_px2pt.cp')
+        char_freq_path = osp.join(data_dir, 'models/char_freq.cp')
+        if create_model:
+          font_model_path = osp.join(data_dir, 'models/font_px2pt.cp')
+        else:          
+          font_model_path = osp.join(data_dir, 'models/font_px2pt'+lang+'.cp')
 
         # get character-frequencies in the English language:
-        with open(char_freq_path,'rb') as f:
-            #self.char_freq = cp.load(f)
-            u = pickle._Unpickler(f)
-            u.encoding = 'latin1'
-            p = u.load()
-            self.char_freq = p
+        #with open(char_freq_path,'rb') as f:
+        #   self.char_freq = cp.load(f)
+        #    u = pickle._Unpickler(f)
+        #   u.encoding = 'latin1'
+        #   p = u.load()
+        #   self.char_freq = p
 
         # get the model to convert from pixel to font pt size:
         with open(font_model_path,'rb') as f:
-            #self.font_model = cp.load(f)
-            u = pickle._Unpickler(f)
+            self.font_model = cp.load(f)
+            '''u = pickle._Unpickler(f)
             u.encoding = 'latin1'
             p = u.load()
-            self.font_model = p
+            self.font_model = p'''
             
         # get the names of fonts to use:
         self.FONT_LIST = osp.join(data_dir, 'fonts/fontlist.txt')
-        self.fonts = [os.path.join(data_dir,'fonts',f.strip()) for f in open(self.FONT_LIST)]
+        self.fonts = [os.path.join(data_dir,'fonts',f.strip()) for f in open(self.FONT_LIST) if lang in f]
+        print(self.fonts)
 
 
     def get_aspect_ratio(self, font, size=None):
@@ -444,8 +462,8 @@ class FontState(object):
         """
         if size is None:
             size = 12 # doesn't matter as we take the RATIO
-        chars = ''.join(self.char_freq.keys())
-        w = np.array(self.char_freq.values())
+        #chars = ''.join(self.char_freq.keys())
+        #w = np.array(self.char_freq.values())
 
         # get the [height,width] of each character:
         try:
@@ -524,6 +542,7 @@ class TextSource(object):
 
         with open(fn,'r') as f:
             self.txt = [l.strip() for l in f.readlines()]
+        #print(self.txt)
 
         # distribution over line/words for LINE/PARA:
         self.p_line_nline = np.array([0.85, 0.10, 0.05])
@@ -617,12 +636,16 @@ class TextSource(object):
     def sample_word(self,nline_max,nchar_max,niter=100):
         rand_line = self.txt[np.random.choice(len(self.txt))]                
         words = rand_line.split()
+        if len(words)==0:
+            return []
         rand_word = random.choice(words)
 
         iter = 0
         while iter < niter and (not self.is_good([rand_word])[0] or len(rand_word)>nchar_max):
             rand_line = self.txt[np.random.choice(len(self.txt))]                
             words = rand_line.split()
+            if len(words)==0:
+                continue
             rand_word = random.choice(words)
             iter += 1
 
