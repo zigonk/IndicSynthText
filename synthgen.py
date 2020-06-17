@@ -216,9 +216,10 @@ def get_text_placement_mask(xyz,mask,plane,pad=2,viz=False):
     REGION : DICT output of TextRegions.get_regions
     PAD : number of pixels to pad the placement-mask by
     """
+    
     contour,hier = cv2.findContours(mask.copy().astype('uint8'),
                                     mode=cv2.RETR_CCOMP,
-                                    method=cv2.CHAIN_APPROX_SIMPLE)[-2:]
+                                    method=cv2.CHAIN_APPROX_SIMPLE)
     contour = [np.squeeze(c).astype('float') for c in contour]
     #plane = np.array([plane[1],plane[0],plane[2],plane[3]])
     H,W = mask.shape[:2]
@@ -239,6 +240,10 @@ def get_text_placement_mask(xyz,mask,plane,pad=2,viz=False):
     rect = cv2.minAreaRect(pts_fp[0].copy().astype('float32'))
     box = np.array(cv2.boxPoints(rect))
     R2d = su.unrotate2d(box.copy())
+    #to fix inverted or mirrored text 
+    if R2d[0][0] < 0:
+      R2d[0][0] = -R2d[0][0]
+      R2d[1][1] = -R2d[1][1]
     box = np.vstack([box,box[0,:]]) #close the box for visualization
 
     mu = np.median(pts_fp[0],axis=0)
@@ -280,6 +285,7 @@ def get_text_placement_mask(xyz,mask,plane,pad=2,viz=False):
         plt.imshow(mask)
         plt.subplot(1,2,2)
         plt.imshow(~place_mask)
+        plt.hold(True)
         for i in range(len(pts_fp_i32)):
             plt.scatter(pts_fp_i32[i][:,0],pts_fp_i32[i][:,1],
                         edgecolors='none',facecolor='g',alpha=0.5)
@@ -349,6 +355,7 @@ def viz_textbb(fignum,text_im, bb_list,alpha=1.0):
     plt.close(fignum)
     plt.figure(fignum)
     plt.imshow(text_im)
+    plt.hold(True)
     H,W = text_im.shape[:2]
     for i in range(len(bb_list)):
         bbs = bb_list[i]
@@ -363,8 +370,8 @@ def viz_textbb(fignum,text_im, bb_list,alpha=1.0):
 
 class RendererV3(object):
 
-    def __init__(self, data_dir, max_time=None):
-        self.text_renderer = tu.RenderFont(data_dir)
+    def __init__(self, data_dir, lang, max_time=None):
+        self.text_renderer = tu.RenderFont(lang,data_dir)
         self.colorizer = Colorize(data_dir)
         #self.colorizerV2 = colorV2.Colorize(data_dir)
 
@@ -495,7 +502,9 @@ class RendererV3(object):
 
     def place_text(self,rgb,collision_mask,H,Hinv):
         font = self.text_renderer.font_state.sample()
+        #print(font)
         font = self.text_renderer.font_state.init_font(font)
+        #print(font)###debug
 
         render_res = self.text_renderer.render_sample(font,collision_mask)
         if render_res is None: # rendering not successful
@@ -547,6 +556,8 @@ class RendererV3(object):
         output : 2x4xm matrix of BB coordinates,
                  where, m == number of words.
         """
+        #if lang == 'arab' or 'urdu':
+        #    return charBB for arab
         wrds = text.split()
         bb_idx = np.r_[0, np.cumsum([len(w) for w in wrds])]
         wordBB = np.zeros((2,4,len(wrds)), 'float32')
@@ -687,5 +698,5 @@ class RendererV3(object):
                     viz_masks(2,img,seg,depth,regions['label'])
                     # viz_regions(rgb.copy(),xyz,seg,regions['coeff'],regions['label'])
                     if i < ninstance-1:
-                        raw_input(colorize(Color.BLUE,'continue?',True))                    
+                        input(colorize(Color.BLUE,'continue?',True))                    
         return res
