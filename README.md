@@ -15,7 +15,7 @@ pygame, opencv (cv2), PIL (Image), numpy, matplotlib, h5py, scipy, kaggle
 ### Downloading Data needed for generation
 In the project directory run
 ```
-kaggle datasets download azharshaikh/SynthTextGen
+kaggle datasets download azharshaikh/SynthTextGen --unzip
 ```
 This will download a data file to the `SynthTextGen` directory. This data file includes:
 
