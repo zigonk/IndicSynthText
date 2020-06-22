@@ -10,7 +10,7 @@ The code in the `master` branch is for Python2. Python3 is supported in the `pyt
 The main dependencies are:
 
 ```
-pygame, opencv (cv2), PIL (Image), numpy, matplotlib, h5py, scipy
+pygame, opencv (cv2), PIL (Image), numpy, matplotlib, h5py, scipy, kaggle
 ```
 ### Downloading Data needed for generation
 In the project directory run
