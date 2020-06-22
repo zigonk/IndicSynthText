@@ -30,7 +30,7 @@ NUM_IMG = -1 # no. of images to use for generation (-1 to use all available):
 SECS_PER_IMG = 5 #max time per image in seconds
 INSTANCE_PER_IMAGE = 1 # no. of times to use the same image
 # path to the data-file, containing image, depth and segmentation:
-DATA_PATH = 'SynthTextGen'
+DATA_PATH = './SynthTextGen/'
 DB_FNAME = osp.join(DATA_PATH,'dset.h5')
 # url of the data (google-drive public file):
 DATA_URL = 'http://www.robots.ox.ac.uk/~ankush/data.tar.gz'
@@ -138,7 +138,7 @@ def main(lang,out_path,total_samples,viz=False):
   if osp.exists(DB_FNAME):
     db = h5py.File(DB_FNAME,'r')
   else:
-    print(colorize(Color.RED,'Data not found and have problems downloading.',bold=True))
+    print(colorize(Color.RED,f'Data not found at {DB_FNAME}. Download from https://www.kaggle.com/azharshaikh/synthtextgen',bold=True))
     sys.stdout.flush()
     sys.exit(-1)
 
@@ -265,9 +265,9 @@ def main(lang,out_path,total_samples,viz=False):
 
 if __name__=='__main__':
   import argparse
-  parser = argparse.ArgumentParser(description='Genereate Synthetic Scene-Text Images')
+  parser = argparse.ArgumentParser(description='Generate Synthetic Scene-Text Images')
   parser.add_argument('--viz',action='store_true',dest='viz',default=False,help='flag for turning on visualizations')
-  parser.add_argument('--lang',dest='lang',help='generate Synth text for lang')
+  parser.add_argument('--lang',dest='lang',required=True, help='Generate synthetic scene-text images for language <lang>')
   parser.add_argument('--output_path',default='./',help='path to store generated results')
   parser.add_argument('--total_samples',default=10000,help='Total number of samples to generate')
   args = parser.parse_args()
