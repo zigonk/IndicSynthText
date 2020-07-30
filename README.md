@@ -2,7 +2,7 @@
 Refactored code for generating Indic synthetic text images as described in ["Synthetic Data for Text Localisation in Natural Images", Ankush Gupta, Andrea Vedaldi, Andrew Zisserman, CVPR 2016](http://www.robots.ox.ac.uk/~vgg/data/scenetext/).
 
 
-**Synthetic Scene-Text Image Samples**
+### Synthetic Scene-Text Image Samples
 ![Synthetic Scene-Text Samples](medium_art.png)
 
 The code in the `master` branch is for Python2. Python3 is supported in the `python3` branch.
