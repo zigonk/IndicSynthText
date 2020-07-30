@@ -3,7 +3,7 @@ Refactored code for generating Indic synthetic text images as described in ["Syn
 
 
 **Synthetic Scene-Text Image Samples**
-![Synthetic Scene-Text Samples](samples.png "Synthetic Samples")
+![Synthetic Scene-Text Samples](medium_art.png)
 
 The code in the `master` branch is for Python2. Python3 is supported in the `python3` branch.
 
