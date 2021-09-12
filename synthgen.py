@@ -355,7 +355,6 @@ def viz_textbb(fignum,text_im, bb_list,alpha=1.0):
     plt.close(fignum)
     plt.figure(fignum)
     plt.imshow(text_im)
-    plt.hold(True)
     H,W = text_im.shape[:2]
     for i in range(len(bb_list)):
         bbs = bb_list[i]
@@ -615,25 +614,25 @@ class RendererV3(object):
             If there's an error in pre-text placement, for e.g. if there's 
             no suitable region for text placement, an empty list is returned.
         """
-        try:
+        # try:
             # depth -> xyz
-            xyz = su.DepthCamera.depth2xyz(depth)
-            
-            # find text-regions:
-            regions = TextRegions.get_regions(xyz,seg,area,label)
+        xyz = su.DepthCamera.depth2xyz(depth)
+        
+        # find text-regions:
+        regions = TextRegions.get_regions(xyz,seg,area,label)
 
-            # find the placement mask and homographies:
-            regions = self.filter_for_placement(xyz,seg,regions)
+        # find the placement mask and homographies:
+        regions = self.filter_for_placement(xyz,seg,regions)
 
-            # finally place some text:
-            nregions = len(regions['place_mask'])
-            if nregions < 1: # no good region to place text on
-                return []
-        except:
+        # finally place some text:
+        nregions = len(regions['place_mask'])
+        if nregions < 1: # no good region to place text on
+            return []
+        # except:
             # failure in pre-text placement
             #import traceback
-            traceback.print_exc()
-            return []
+            # traceback.print_exc()
+            # return []
 
         res = []
         for i in range(ninstance):
@@ -672,10 +671,10 @@ class RendererV3(object):
                 except TimeoutException as msg:
                     print (msg)
                     continue
-                except:
-                    traceback.print_exc()
+                # except:
+                    # traceback.print_exc()
                     # some error in placing text on the region
-                    continue
+                    # continue
 
                 if txt_render_res is not None:
                     placed = True
