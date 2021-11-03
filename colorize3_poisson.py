@@ -425,6 +425,7 @@ class Colorize(object):
         Returns:
             a image of shape (H,W,3) rgb colorized text-image.
         """
+        assert bg_image.size > 0
         bg_image = bg_image.copy()
         assert len(hs) == len(text_masks)
 
@@ -434,7 +435,7 @@ class Colorize(object):
         if place_order is None:
             place_order = list(range(len(text_masks)))
 
-        H, W = bg_image.shape[0], bg_image.shape[1]
+        bg_size = np.array(bg_image.shape[:2], dtype=np.int16)
 
         # rendered = []
         for min_char_h, text_mask in zip(hs, text_masks):
@@ -443,25 +444,25 @@ class Colorize(object):
             if not np.any(text_mask):
                 continue
 
-            loc = np.nonzero(text_mask)
-            x1, y1 = np.min(loc[1]), np.min(loc[0])
-            x2, y2 = np.max(loc[1]), np.max(loc[0])
-            w, h = x2 - x1, y2 - y1
+            loc = np.transpose(np.nonzero(text_mask))
+            tl = loc.min(axis=0)        # y1, x1
+            br = loc.max(axis=0)        # y2, x2
 
-            text_patch = text_mask[y1:y2, x1:x2]
-
-            # x1 = max(0, x1 - pad)
-            # x2 = min(W, x2 + pad)
-            # y1 = min(0, y1 - pad)
-            # y2 = max(H, y2 + pad)
+            text_patch = text_mask[tl[0]:br[0], tl[1]:br[1]]
 
             # figure out padding:
-            # text_patch = np.pad(text_patch, pad_width=(
-            #     (num_pad[0], num_pad[2]), (num_pad[1], num_pad[3])), mode='constant')
-            # l -= num_pad[:2]
+            ext = bg_size - br
+            num_pad = np.full(4, fill_value=pad, dtype=np.int32)
+            num_pad[:2] = np.minimum(num_pad[:2], tl)
+            num_pad[2:] = np.minimum(num_pad[2:], ext)
+            text_patch = np.pad(text_patch, pad_width=(
+                num_pad[0:3:2], num_pad[1:4:2]), mode='constant')
 
-            bg = bg_image[y1:y2, x1:x2]
+            tl -= num_pad[:2]
+            br += num_pad[2:]
+
+            bg = bg_image[tl[0]:br[0], tl[1]:br[1]]
             rdr0 = self.process(text_patch, bg, min_char_h)
-            bg_image[y1:y2, x1:x2] = rdr0  # rendered[-1]
+            bg_image[tl[0]:br[0], tl[1]:br[1]] = rdr0  # rendered[-1]
 
         return bg_image

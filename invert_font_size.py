@@ -21,7 +21,7 @@ def gen_fontmodel(lang,output_path):
 	xs = []
 	models = {} #linear model
 
-	FS = FontState(lang,create_model=True)
+	FS = FontState(lang,data_dir='SynthTextGen', create_model=True)
 	print(FS)
 	#plt.figure()
 	#plt.hold(True)
