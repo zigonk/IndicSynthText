@@ -1,12 +1,11 @@
 from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
-import os.path as osp
 import random
-import os
 import cv2
 from PIL import Image, ImageDraw, ImageFont
-import _pickle as cp
+import pickle
+from pathlib import Path
 import scipy.signal as ssig
 import scipy.stats as sstat
 import pygame
@@ -87,7 +86,7 @@ class RenderFont(object):
         Also, outputs ground-truth bounding boxes and text string
     """
 
-    def __init__(self, lang, data_dir='data'):
+    def __init__(self, lang, data_dir: Path = Path('data')):
         # distribution over the type of text:
         # whether to get a single word, paragraph or a line:
         self.p_text = {1.0: 'WORD',
@@ -110,12 +109,11 @@ class RenderFont(object):
         file_path = 'newsgroup/newsgroup'+lang+'.txt'
         # text-source : gets english text:
         self.text_source = TextSource(min_nchar=self.min_nchar,
-                                      fn=osp.join(data_dir, file_path))
+                                      fn=data_dir / file_path)
 
         # get font-state object:
-        self.font_state = FontState(lang, data_dir)
-        self.pil_font = ImageFont.truetype(
-            'SynthTextGen/fonts/ubuntuen/Ubuntu-Bold.ttf', 24)
+        self.font_state = FontState(data_dir)
+        self.pil_font = ImageFont.truetype('SynthTextGen/fonts/ubuntu/Ubuntu-Bold.ttf', 24)
 
         pygame.init()
 
@@ -123,7 +121,7 @@ class RenderFont(object):
         """
         renders multiline TEXT on the pygame surface SURF with the
         font style FONT.
-        A new line in text is denoted by \n, no other characters are 
+        A new line in text is denoted by \n, no other characters are
         escaped. Other forms of white-spaces should be converted to space.
 
         returns the updated surface, words and the character bounding boxes.
@@ -295,23 +293,23 @@ class RenderFont(object):
             ba = np.clip(back_arr.copy().astype(np.float), 0, 255)
             ta = np.clip(text_arrs[i].copy().astype(np.float), 0, 255)
             ba[ba > 127] = 1e8
-            intersect = ssig.fftconvolve(ba, ta[::-1, ::-1], mode='valid')
+            intersect = ssig.fftconvolve(ba, ta[:: -1, :: -1], mode='valid')
             safemask = intersect < 1e8
 
             if not np.any(safemask):  # no collision-free position:
                 # warn("COLLISION!!!")
-                return back_arr, locs[:i], bbs[:i], order[:i]
+                return back_arr, locs[: i], bbs[: i], order[: i]
 
             minloc = np.transpose(np.nonzero(safemask))
             loc = minloc[np.random.choice(minloc.shape[0]), :]
             locs[i] = loc
 
             # update the bounding-boxes:
-            bbs[i] = move_bb(bbs[i], loc[::-1])
+            bbs[i] = move_bb(bbs[i], loc[:: -1])
 
             # blit the text onto the canvas
             w, h = text_arrs[i].shape
-            out_arr[loc[0]:loc[0]+w, loc[1]:loc[1]+h] += text_arrs[i]
+            out_arr[loc[0]: loc[0]+w, loc[1]: loc[1]+h] += text_arrs[i]
 
         return out_arr, locs, bbs, order
 
@@ -340,9 +338,9 @@ class RenderFont(object):
         n, _ = bbs.shape
         coords = np.zeros((2, 4, n))
         for i in range(n):
-            coords[:, :, i] = bbs[i, :2][:, None]
+            coords[:, :, i] = bbs[i, : 2][:, None]
             coords[0, 1, i] += bbs[i, 2]
-            coords[:, 2, i] += bbs[i, 2:4]
+            coords[:, 2, i] += bbs[i, 2: 4]
             coords[1, 3, i] += bbs[i, 3]
         return coords
 
@@ -352,7 +350,7 @@ class RenderFont(object):
         in the mask -- 255 for unsafe, 0 for safe.
         The text is rendered using FONT, the text content is TEXT.
         """
-        #H,W = mask.shape
+        # H,W = mask.shape
         H, W = self.robust_HW(mask)
         f_asp = self.font_state.get_aspect_ratio(font)
 
@@ -382,8 +380,9 @@ class RenderFont(object):
             font.size = f_h  # set the font-size
 
             # compute the max-number of lines/chars-per-line:
-            nline, nchar = self.get_nline_nchar(mask.shape[:2], f_h, f_h*f_asp)
-            #print ('  > nline = {}, nchar = {}'.format(nline, nchar))
+            nline, nchar = self.get_nline_nchar(
+                mask.shape[: 2], f_h, f_h*f_asp)
+            # print ('  > nline = {}, nchar = {}'.format(nline, nchar))
 
             if nchar < self.min_nchar:
                 return None
@@ -415,7 +414,7 @@ class RenderFont(object):
 
             # make sure that the text-array is not bigger than mask array:
             if np.any(np.r_[txt_arr.shape[:2]] > np.r_[mask.shape[:2]]):
-                #warn("text-array is bigger than mask")
+                # warn("text-array is bigger than mask")
                 continue
 
             # position the text within the mask:
@@ -435,7 +434,7 @@ class RenderFont(object):
 
 class FontState(object):
     """
-    Defines the random state of the font rendering  
+    Defines the random state of the font rendering
     """
     size = [50, 10]  # normal dist mean, std
     underline = 0.05
@@ -454,16 +453,15 @@ class FontState(object):
     random_kerning = 0.2
     random_kerning_amount = 0.1
 
-    def __init__(self, lang, data_dir='data', create_model=False):
+    def __init__(self, data_dir: Path = Path('data'), create_model=False):
 
-        char_freq_path = osp.join(data_dir, 'models/char_freq.cp')
+        char_freq_path = data_dir / 'models/char_freq.cp'
         if create_model:
-            font_model_path = osp.join(data_dir, 'models/font_px2pt.cp')
+            font_model_path = data_dir / 'models/font_px2pt.cp'
         else:
             # font_model_path = osp.join(
             #     data_dir, 'models/font_px2pt'+lang+'.cp')
-            font_model_path = osp.join(
-                data_dir, 'models/font_px2pten.cp')
+            font_model_path = data_dir / 'models/font_px2pten.cp'
 
         # get character-frequencies in the English language:
         # with open(char_freq_path,'rb') as f:
@@ -475,16 +473,10 @@ class FontState(object):
 
         # get the model to convert from pixel to font pt size:
         with open(font_model_path, 'rb') as f:
-            self.font_model = cp.load(f)
-            '''u = pickle._Unpickler(f)
-            u.encoding = 'latin1'
-            p = u.load()
-            self.font_model = p'''
+            self.font_model = pickle.load(f)
 
         # get the names of fonts to use:
-        self.FONT_LIST = osp.join(data_dir, 'fonts/fontlist.txt')
-        self.fonts = [os.path.join(data_dir, 'fonts', f.strip())
-                      for f in open(self.FONT_LIST) if lang in f]
+        self.fonts = sorted((data_dir / 'fonts').glob('**/*.ttf'))
         print(self.fonts)
 
     def get_aspect_ratio(self, font, size=None):
@@ -495,8 +487,8 @@ class FontState(object):
             size = 12  # doesn't matter as we take the RATIO
         return 1.0
         # chars = ''
-        #chars = ''.join(self.char_freq.keys())
-        #w = np.array(self.char_freq.values())
+        # chars = ''.join(self.char_freq.keys())
+        # w = np.array(self.char_freq.values())
 
         # get the [height,width] of each character:
         try:

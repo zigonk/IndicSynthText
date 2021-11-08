@@ -5,182 +5,17 @@
 Main script for synthetic text rendering.
 """
 
-from __future__ import division
 import copy
 import cv2
-import h5py
-from PIL import Image, ImageDraw
 import numpy as np
 #import mayavi.mlab as mym
 import matplotlib.pyplot as plt
-import os.path as osp
-import scipy.ndimage as sim
 import scipy.spatial.distance as ssd
 import synth_utils as su
 import text_utils as tu
+from text_regions import TextRegions
 from colorize3_poisson import Colorize
-from common import *
-import traceback
 import itertools
-
-
-class TextRegions(object):
-    """
-    Get region from segmentation which are good for placing
-    text.
-    """
-    minWidth = 30  # px
-    minHeight = 30  # px
-    minAspect = 0.3  # w > 0.3*h
-    maxAspect = 7
-    minArea = 100  # number of pix
-    pArea = 0.60  # area_obj/area_minrect >= 0.6
-
-    # RANSAC planar fitting params:
-    dist_thresh = 0.10  # m
-    num_inlier = 90
-    ransac_fit_trials = 100
-    min_z_projection = 0.25
-
-    minW = 20
-
-    @staticmethod
-    def filter_rectified(mask):
-        """
-        mask : 1 where "ON", 0 where "OFF"
-        """
-        wx = np.median(np.sum(mask, axis=0))
-        wy = np.median(np.sum(mask, axis=1))
-        return wx > TextRegions.minW and wy > TextRegions.minW
-
-    @staticmethod
-    def get_hw(pt, return_rot=False):
-        pt = pt.copy()
-        R = su.unrotate2d(pt)
-        mu = np.median(pt, axis=0)
-        pt = (pt-mu[None, :]).dot(R.T) + mu[None, :]
-        h, w = np.max(pt, axis=0) - np.min(pt, axis=0)
-        if return_rot:
-            return h, w, R
-        return h, w
-
-    @staticmethod
-    def filter(seg, area, label):
-        """
-        Apply the filter.
-        The final list is ranked by area.
-        """
-        good = label[area > TextRegions.minArea]
-        area = area[area > TextRegions.minArea]
-        filt, R = [], []
-        for idx, i in enumerate(good):
-            mask = seg == i
-            xs, ys = np.where(mask)
-
-            coords = np.c_[xs, ys].astype('float32')
-            rect = cv2.minAreaRect(coords)
-            #box = np.array(cv2.cv.BoxPoints(rect))
-            box = np.array(cv2.boxPoints(rect))
-            h, w, rot = TextRegions.get_hw(box, return_rot=True)
-
-            f = (h > TextRegions.minHeight
-                 and w > TextRegions.minWidth
-                 and TextRegions.minAspect < w/h < TextRegions.maxAspect
-                 and area[idx]/w*h > TextRegions.pArea)
-            filt.append(f)
-            R.append(rot)
-
-        # filter bad regions:
-        filt = np.array(filt)
-        area = area[filt]
-        R = [R[i] for i in range(len(R)) if filt[i]]
-
-        # sort the regions based on areas:
-        aidx = np.argsort(-area)
-        good = good[filt][aidx]
-        R = [R[i] for i in aidx]
-        filter_info = {'label': good, 'rot': R, 'area': area[aidx]}
-        return filter_info
-
-    @staticmethod
-    def sample_grid_neighbours(mask, nsample, step=3):
-        """
-        Given a HxW binary mask, sample 4 neighbours on the grid,
-        in the cardinal directions, STEP pixels away.
-        """
-        if 2*step >= min(mask.shape[:2]):
-            return  # None
-
-        y_m, x_m = np.where(mask)
-        mask_idx = np.zeros_like(mask, 'int32')
-        for i in range(len(y_m)):
-            mask_idx[y_m[i], x_m[i]] = i
-
-        xp, xn = np.zeros_like(mask), np.zeros_like(mask)
-        yp, yn = np.zeros_like(mask), np.zeros_like(mask)
-        xp[:, :-2*step] = mask[:, 2*step:]
-        xn[:, 2*step:] = mask[:, :-2*step]
-        yp[:-2*step, :] = mask[2*step:, :]
-        yn[2*step:, :] = mask[:-2*step, :]
-        valid = mask & xp & xn & yp & yn
-
-        ys, xs = np.where(valid)
-        N = len(ys)
-        if N == 0:  # no valid pixels in mask:
-            return  # None
-        nsample = min(nsample, N)
-        idx = np.random.choice(N, nsample, replace=False)
-        # generate neighborhood matrix:
-        # (1+4)x2xNsample (2 for y,x)
-        xs, ys = xs[idx], ys[idx]
-        s = step
-        X = np.transpose(np.c_[xs, xs+s, xs+s, xs-s, xs-s]
-                         [:, :, None], (1, 2, 0))
-        Y = np.transpose(np.c_[ys, ys+s, ys-s, ys+s, ys-s]
-                         [:, :, None], (1, 2, 0))
-        sample_idx = np.concatenate([Y, X], axis=1)
-        mask_nn_idx = np.zeros((5, sample_idx.shape[-1]), 'int32')
-        for i in range(sample_idx.shape[-1]):
-            mask_nn_idx[:, i] = mask_idx[sample_idx[:, :, i]
-                                         [:, 0], sample_idx[:, :, i][:, 1]]
-        return mask_nn_idx
-
-    @staticmethod
-    def filter_depth(xyz, seg, regions):
-        plane_info = {'label': [],
-                      'coeff': [],
-                      'support': [],
-                      'rot': [],
-                      'area': []}
-        for idx, l in enumerate(regions['label']):
-            mask = seg == l
-            pt_sample = TextRegions.sample_grid_neighbours(
-                mask, TextRegions.ransac_fit_trials, step=3)
-            if pt_sample is None:
-                continue  # not enough points for RANSAC
-            # get-depths
-            pt = xyz[mask]
-            plane_model = su.isplanar(pt, pt_sample,
-                                      TextRegions.dist_thresh,
-                                      TextRegions.num_inlier,
-                                      TextRegions.min_z_projection)
-            if plane_model is not None:
-                plane_coeff = plane_model[0]
-                if np.abs(plane_coeff[2]) > TextRegions.min_z_projection:
-                    plane_info['label'].append(l)
-                    plane_info['coeff'].append(plane_model[0])
-                    plane_info['support'].append(plane_model[1])
-                    plane_info['rot'].append(regions['rot'][idx])
-                    plane_info['area'].append(regions['area'][idx])
-
-        return plane_info
-
-    @staticmethod
-    def get_regions(xyz, seg, area, label):
-        regions = TextRegions.filter(seg, area, label)
-        # fit plane to text-regions:
-        regions = TextRegions.filter_depth(xyz, seg, regions)
-        return regions
 
 
 def rescale_frontoparallel(p_fp, box_fp, p_im):
@@ -389,9 +224,7 @@ class RendererV3(object):
 
         self.min_char_height = 8  # px
         self.min_asp_ratio = 0.4
-
         self.max_text_regions = 7
-
         self.max_time = max_time
 
     def filter_regions(self, regions, filt):
@@ -658,7 +491,7 @@ class RendererV3(object):
         for i in range(ninstance):
             place_masks = copy.deepcopy(regions['place_mask'])
 
-            print(colorize(Color.CYAN, " ** instance # : %d" % i))
+            print("** instance # : %d" % i)
 
             idict = {'img': [], 'charBB': None, 'wordBB': None, 'txt': None}
 
@@ -680,24 +513,24 @@ class RendererV3(object):
             for idx in reg_range:
                 ireg = reg_idx[idx]
                 # try:
-                if self.max_time is None:
-                    txt_render_res = self.place_text(img,
-                                                     place_masks[ireg],
-                                                     regions['homography'][ireg],
-                                                     regions['homography_inv'][ireg])
-                else:
-                    with time_limit(self.max_time):
-                        txt_render_res = self.place_text(img,
-                                                         place_masks[ireg],
-                                                         regions['homography'][ireg],
-                                                         regions['homography_inv'][ireg])
+                # if self.max_time is None:
+                txt_render_res = self.place_text(img,
+                                                 place_masks[ireg],
+                                                 regions['homography'][ireg],
+                                                 regions['homography_inv'][ireg])
+                # else:
+                #     with time_limit(self.max_time):
+                #         txt_render_res = self.place_text(img,
+                #                                          place_masks[ireg],
+                #                                          regions['homography'][ireg],
+                #                                          regions['homography_inv'][ireg])
                 # except TimeoutException as msg:
                 #     print(msg)
                 #     continue
                 # except:
-                    # traceback.print_exc()
-                    # some error in placing text on the region
-                    # continue
+                # traceback.print_exc()
+                # some error in placing text on the region
+                # continue
 
                 if txt_render_res is not None:
                     placed = True
@@ -721,5 +554,5 @@ class RendererV3(object):
                     viz_masks(2, img, seg, depth, regions['label'])
                     # viz_regions(rgb.copy(),xyz,seg,regions['coeff'],regions['label'])
                     if i < ninstance-1:
-                        input(colorize(Color.BLUE, 'continue?', True))
+                        input('continue?')
         return res

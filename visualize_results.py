@@ -10,8 +10,6 @@ import os.path as osp
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
-from common import *
-
 
 
 def viz_textbb(text_im, charBB_list, wordBB, alpha=1.0):
@@ -54,7 +52,7 @@ def main(db_fname):
     with env.begin(write=True) as txn:
         t = txn.get('num-samples'.encode())
         t = t.decode()
-        print ("total number of images : ", colorize(Color.RED, t, highlight=True))
+        print ("total number of images : ", t)
         while True:
             label_key = 'label-%09d'.encode() % cnt
             img_key = 'image-%09d'.encode() % cnt
