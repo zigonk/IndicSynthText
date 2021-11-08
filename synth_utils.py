@@ -165,7 +165,7 @@ class DepthCamera(object):
     """
     Camera functions for Depth-CNN camera.
     """
-    f = 520
+    f = 255
 
     @staticmethod
     def plane2xyz(center, ij, plane):

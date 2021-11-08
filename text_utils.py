@@ -460,8 +460,10 @@ class FontState(object):
         if create_model:
             font_model_path = osp.join(data_dir, 'models/font_px2pt.cp')
         else:
+            # font_model_path = osp.join(
+            #     data_dir, 'models/font_px2pt'+lang+'.cp')
             font_model_path = osp.join(
-                data_dir, 'models/font_px2pt'+lang+'.cp')
+                data_dir, 'models/font_px2pten.cp')
 
         # get character-frequencies in the English language:
         # with open(char_freq_path,'rb') as f:
