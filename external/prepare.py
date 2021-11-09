@@ -14,17 +14,9 @@ import pickle
 
 
 def segmentation(image: np.ndarray):
-    segments = slic(image, n_segments=100, compactness=10, sigma=1,
-                         start_label=1)
-    # segments_fz = felzenszwalb(image, scale=(image.shape[0] * image.shape[1]) / 1000,
-    #                            sigma=0.5, min_size=int(image.shape[0] * image.shape[1] / 400))
-    # segments = label2rgb(segments_slic, image=image, bg_label=0, kind='avg')
-    # segments = label2rgb(segments_fz, image=image, bg_label=0, kind='avg')
-    # segments = rgb2gray(segments)
-    # segments = mark_boundaries(image, segments_slic)
-    # labels, areas = np.unique(segments_fz, return_counts=True)
+    segments = felzenszwalb(image, scale=200,
+                            sigma=0.8, min_size=int(image.shape[0] * image.shape[1] / 200))
     labels, areas = np.unique(segments, return_counts=True)
-    # segments = img_as_ubyte(segments)
     return {
         'seg': segments,
         'label': labels,
@@ -33,18 +25,25 @@ def segmentation(image: np.ndarray):
 
 
 def show_info(info: Dict):
-    plt.figure(figsize=(10, 10))
-    plt.subplot(131)
-    plt.title('Input image')
-    plt.imshow(info['image'])
-    plt.subplot(132)
-    plt.title('Depth prediction')
-    plt.imshow(info['depth'])
-    plt.subplot(133)
-    plt.title('Segmentation')
-    plt.imshow(info['seg'])
+
+    imgs = [
+        ('Input', info['image'])
+    ]
+
+    if 'depth' in info.keys():
+        imgs.append(('Depth', info['depth']))
+
+    if 'seg' in info.keys():
+        imgs.append(('Segmentation', info['seg']))
+
+    plt.figure(figsize=(10, 5))
+    for i, (title, img) in enumerate(imgs, 1):
+        plt.subplot(1, len(imgs), i)
+        plt.title(title)
+        plt.imshow(img)
+
     plt.tight_layout()
-    plt.show()
+    plt.show(block=True)
 
 
 def save_info(info: Dict, input_path: Path, output_dir: Path):
@@ -60,6 +59,8 @@ def main():
     parser.add_argument('--top_k', default=float('inf'), type=float)
     parser.add_argument('--weight_dir', default='weights')
     parser.add_argument('--show', action='store_true', default=False)
+    parser.add_argument('--depth', action='store_true', default=False)
+    parser.add_argument('--seg', action='store_true', default=False)
     args = parser.parse_args()
 
     image_paths = sorted(Path(args.input_dir).glob('*'))
@@ -72,8 +73,10 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
 
-    weight_dir = Path(args.weight_dir)
-    depth_predictor = Predictor(weight_dir / 'midas_v21_small-70d6b9c8.pt')
+    depth_predictor = None
+    if not args.seg:
+        weight_dir = Path(args.weight_dir)
+        depth_predictor = Predictor(weight_dir / 'midas_v21_small-70d6b9c8.pt')
 
     for i, image_path in enumerate(image_paths):
         print(f'{i+1}/{num_images}: {image_path}')
@@ -82,14 +85,21 @@ def main():
         info['image_path'] = str(image_path.resolve())
         info['image'] = image.copy()                        # 0-255 (H, W, C)
         image = img_as_float(image)
-        info['depth'] = depth_predictor.predict(image)      # 0-255 (H, W)
-        info.update(segmentation(image))                    # 0-255 (H, W)
-        info.update(segmentation(image))                    # 0-255 (H, W)
 
-        save_info(info, image_path, output_dir)
-
-        if args.show:
+        if args.depth or args.seg:
+            # debug mode
+            if args.depth:
+                info['depth'] = depth_predictor.predict(image)      # 0-255 (H, W)
+            if args.seg:
+                info.update(segmentation(image))                    # 0-255 (H, W)
             show_info(info)
+
+        else:
+            info['depth'] = depth_predictor.predict(image)      # 0-255 (H, W)
+            info.update(segmentation(image))                    # 0-255 (H, W)
+            save_info(info, image_path, output_dir)
+            if args.show:
+                show_info(info)
 
         if i + 1 > args.top_k:
             break
