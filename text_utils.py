@@ -8,9 +8,6 @@ import pickle
 from pathlib import Path
 import scipy.signal as ssig
 import scipy.stats as sstat
-import pygame
-import pygame.locals
-from pygame import freetype
 import math
 
 
@@ -99,8 +96,8 @@ class RenderFont(object):
         # the minimum number of characters that should fit in a mask
         # to define the maximum font height.
         self.min_nchar = 2
-        self.min_font_h = 16  # px : 0.6*12 ~ 7px <= actual minimum height
-        self.max_font_h = 120  # px
+        self.min_font_h = 48  # px : 0.6*12 ~ 7px <= actual minimum height
+        self.max_font_h = 320  # px
         self.p_flat = 0.10
 
         # curved baseline:
@@ -113,11 +110,8 @@ class RenderFont(object):
 
         # get font-state object:
         self.font_state = FontState(data_dir)
-        self.pil_font = ImageFont.truetype('SynthTextGen/fonts/ubuntu/Ubuntu-Bold.ttf', 24)
 
-        pygame.init()
-
-    def render_multiline(self, _, text):
+    def render_multiline(self, font: ImageFont.FreeTypeFont, text):
         """
         renders multiline TEXT on the pygame surface SURF with the
         font style FONT.
@@ -130,14 +124,14 @@ class RenderFont(object):
         lines = text.split('\n')
 
         line_max_length = lines[np.argmax([len(l) for l in lines])]
-        LINE_W, LINE_H = self.pil_font.getsize(line_max_length)
+        LINE_W, LINE_H = font.getsize(line_max_length)
 
         fsize = (round(2.0*LINE_W), round(1.25*LINE_H*len(lines)))
         image = Image.new('L', fsize, color='black')
         draw = ImageDraw.Draw(image)
 
         char_bb = []
-        space_w = self.pil_font.getsize('O')[0]
+        space_w = font.getsize('O')[0]
         x, y = 0, 0
         for line in lines:
             x = 0  # carriage-return
@@ -147,8 +141,8 @@ class RenderFont(object):
                     x += space_w
                 else:
                     # render the character
-                    draw.text((x, y), ch, fill='white', font=self.pil_font)
-                    ch_size = self.pil_font.getsize(ch)
+                    draw.text((x, y), ch, fill='white', font=font)
+                    ch_size = font.getsize(ch)
                     char_bb.append((x, y, ch_size[0], ch_size[1]))
                     x += ch_size[0]
 
@@ -174,7 +168,7 @@ class RenderFont(object):
         char_bb = np.array(char_bb)
         return image, words, char_bb
 
-    def render_curved(self, _, word_text):  # add lang
+    def render_curved(self, font: ImageFont.FreeTypeFont, word_text):  # add lang
         """
         use curved baseline for rendering word
         """
@@ -190,9 +184,7 @@ class RenderFont(object):
         isword = len(word_text.split()) == 1
 
         if not isword or wl > 10 or np.random.rand() > self.p_curved:
-            return self.render_multiline(_, word_text)
-
-        font = self.pil_font
+            return self.render_multiline(font, word_text)
 
         word_bound = font.getbbox(word_text)
         fsize = (round(2.0*word_bound[2]), round(3*word_bound[3]))
@@ -344,7 +336,7 @@ class RenderFont(object):
             coords[1, 3, i] += bbs[i, 3]
         return coords
 
-    def render_sample(self, font, mask):
+    def render_sample(self, font_name, font, mask):
         """
         Places text in the "collision-free" region as indicated
         in the mask -- 255 for unsafe, 0 for safe.
@@ -352,10 +344,9 @@ class RenderFont(object):
         """
         # H,W = mask.shape
         H, W = self.robust_HW(mask)
-        f_asp = self.font_state.get_aspect_ratio(font)
 
         # find the maximum height in pixels:
-        max_font_h = min(0.9*H, (1/f_asp)*W/(self.min_nchar+1))
+        max_font_h = min(0.9*H, W/(self.min_nchar+1))
         max_font_h = min(max_font_h, self.max_font_h)
         if max_font_h < self.min_font_h:  # not possible to place any text here
             return  # None
@@ -371,17 +362,16 @@ class RenderFont(object):
             f_h_px = self.sample_font_height_px(self.min_font_h, max_font_h)
             # print "font-height : %.2f (min: %.2f, max: %.2f)"%(f_h_px, self.min_font_h,max_font_h)
             # convert from pixel-height to font-point-size:
-            f_h = self.font_state.get_font_size(font, f_h_px)
+            f_h = self.font_state.get_font_size(font_name, f_h_px)
 
             # update for the loop
             max_font_h = f_h_px
             i += 1
 
-            font.size = f_h  # set the font-size
+            # font.size = f_h  # set the font-size
 
             # compute the max-number of lines/chars-per-line:
-            nline, nchar = self.get_nline_nchar(
-                mask.shape[: 2], f_h, f_h*f_asp)
+            nline, nchar = self.get_nline_nchar(mask.shape[: 2], f_h, f_h)
             # print ('  > nline = {}, nchar = {}'.format(nline, nchar))
 
             if nchar < self.min_nchar:
@@ -391,7 +381,6 @@ class RenderFont(object):
             # sample text:
             text_type = sample_weighted(self.p_text)
             text = self.text_source.sample(nline, nchar, text_type)
-            # print(text)
             if len(text) == 0 or np.any([len(line) == 0 for line in text]):
                 continue
             # print colorize(Color.GREEN, text)
@@ -436,7 +425,8 @@ class FontState(object):
     """
     Defines the random state of the font rendering
     """
-    size = [50, 10]  # normal dist mean, std
+    # size = [50, 10]  # normal dist mean, std
+    size = [30, 70]  # normal dist mean, std
     underline = 0.05
     strong = 0.5
     oblique = 0.2
@@ -461,7 +451,7 @@ class FontState(object):
         else:
             # font_model_path = osp.join(
             #     data_dir, 'models/font_px2pt'+lang+'.cp')
-            font_model_path = data_dir / 'models/font_px2pten.cp'
+            font_model_path = data_dir / 'models/font_px2pt.pkl'
 
         # get character-frequencies in the English language:
         # with open(char_freq_path,'rb') as f:
@@ -476,7 +466,7 @@ class FontState(object):
             self.font_model = pickle.load(f)
 
         # get the names of fonts to use:
-        self.fonts = sorted((data_dir / 'fonts').glob('**/*.ttf'))
+        self.fonts = sorted((data_dir / 'fonts').glob('**/*'))
         print(self.fonts)
 
     def get_aspect_ratio(self, font, size=None):
@@ -506,20 +496,23 @@ class FontState(object):
         except:
             return 1.0
 
-    def get_font_size(self, font, font_size_px):
+    def get_font_size(self, font_name, font_size_px):
         """
         Returns the font-size which corresponds to FONT_SIZE_PX pixels font height.
         """
-        m = self.font_model[font.name]
+        m = self.font_model[font_name]
         return m[0]*font_size_px + m[1]  # linear model
 
     def sample(self):
         """
         Samples from the font state distribution
         """
+        font = self.fonts[int(np.random.randint(0, len(self.fonts)))]
+        font_name = font.stem
         return {
-            'font': self.fonts[int(np.random.randint(0, len(self.fonts)))],
-            'size': self.size[1]*np.random.randn() + self.size[0],
+            'font': font,
+            'name': font_name,
+            'size': np.random.randint(self.size[0], self.size[1]),
             'underline': np.random.rand() < self.underline,
             'underline_adjustment': max(2.0, min(-2.0, self.underline_adjustment[1]*np.random.randn() + self.underline_adjustment[0])),
             'strong': np.random.rand() < self.strong,
@@ -533,22 +526,6 @@ class FontState(object):
             'random_kerning': np.random.rand() < self.random_kerning,
             'random_kerning_amount': self.random_kerning_amount,
         }
-
-    def init_font(self, fs):
-        """
-        Initializes a pygame font.
-        FS : font-state sample
-        """
-        font = freetype.Font(fs['font'], size=fs['size'])
-        font.underline = fs['underline']
-        font.underline_adjustment = fs['underline_adjustment']
-        font.strong = fs['strong']
-        font.oblique = fs['oblique']
-        font.strength = fs['strength']
-        char_spacing = fs['char_spacing']
-        font.antialiased = True
-        font.origin = True
-        return font
 
 
 class TextSource(object):
