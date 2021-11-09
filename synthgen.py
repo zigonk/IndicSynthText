@@ -6,6 +6,7 @@ Main script for synthetic text rendering.
 """
 
 import copy
+from PIL import ImageFont
 import cv2
 import numpy as np
 #import mayavi.mlab as mym
@@ -345,12 +346,10 @@ class RendererV3(object):
         return cv2.GaussianBlur(text_mask, (ksz, ksz), bsz)
 
     def place_text(self, rgb, collision_mask, H, Hinv):
-        font = self.text_renderer.font_state.sample()
-        # print(font)
-        font = self.text_renderer.font_state.init_font(font)
-        # print(font)###debug
-
-        render_res = self.text_renderer.render_sample(font, collision_mask)
+        font_sample = self.text_renderer.font_state.sample()
+        font = ImageFont.truetype(str(font_sample['font']), size=font_sample['size'])
+        font_name = font_sample['name']
+        render_res = self.text_renderer.render_sample(font_name, font, collision_mask)
         if render_res is None:  # rendering not successful
             return  # None
         else:
