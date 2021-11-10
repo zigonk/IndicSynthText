@@ -58,7 +58,6 @@ class TextRegions(object):
 
             coords = np.c_[xs, ys].astype('float32')
             rect = cv2.minAreaRect(coords)
-            #box = np.array(cv2.cv.BoxPoints(rect))
             box = np.array(cv2.boxPoints(rect))
             h, w, rot = TextRegions.get_hw(box, return_rot=True)
 

@@ -1,4 +1,5 @@
 from __future__ import division
+from typing import List
 import numpy as np
 import matplotlib.pyplot as plt
 import random
@@ -250,8 +251,9 @@ class RenderFont(object):
         # for (x, y, w, h) in char_bb:
         #     draw.rectangle((x, y, x+w, y+h), outline=(255, 0, 0))
         # draw.rectangle(crop_box, outline=(0, 255, 0))
-
         # debug.show()
+        # exit(0)
+
         word_image = np.array(image.crop(crop_box))
         char_bb = np.array(char_bb)
 
@@ -259,7 +261,7 @@ class RenderFont(object):
         char_bb[:, 0] = char_bb[:, 0] - crop_box_x
         char_bb[:, 1] = char_bb[:, 1] - crop_box_y
 
-        # plt.imshow(image)
+        # plt.imshow(word_image)
         # plt.show()
         # exit()
 
@@ -275,7 +277,7 @@ class RenderFont(object):
         nchar = int(np.floor(W/font_width))
         return nline, nchar
 
-    def place_text(self, text_arrs, back_arr, bbs):
+    def place_text(self, text_arrs: List[np.ndarray], back_arr, bbs: List[np.ndarray]):
         areas = [-np.prod(ta.shape) for ta in text_arrs]
         order = np.argsort(areas)
 
