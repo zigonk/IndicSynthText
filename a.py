@@ -1,4 +1,4 @@
-from PIL import Image, ImageFont, ImageDraw
+from PIL import Image, ImageFont, ImageDraw, features
 import numpy as np
 import math
 
@@ -38,13 +38,14 @@ def draw_char(font: ImageFont.FreeTypeFont, ch: str, rotation: float):
 
 
 if __name__ == '__main__':
-
+    print (features.check('raqm'))
     # word_text = 'aBg'
-    word_text = 'g'
+    word_text = u'v\u1EA5n'
+    # word_text = u"\u250c\u2500\u2510\u2502\u2514\u2518\u255e\u2550\u2561\u2564\u2567\u2558\u255b"
     wl = len(word_text)
     isword = len(word_text.split()) == 1
-    font = ImageFont.truetype(
-        'SynthTextGen/fonts/ubuntuen/Ubuntu-Bold.ttf', 200)
+    # font = ImageFont.truetype('SynthTextGen/fonts/times-new-roman.ttf', 200, layout_engine=ImageFont.LAYOUT_RAQM)
+    font = ImageFont.truetype('SynthTextGen/fonts/TIMES.TTF', 200)
 
     ascent, descent = font.getmetrics()
     print('metrics', ascent, descent)
@@ -57,13 +58,13 @@ if __name__ == '__main__':
 
     image = draw_char(font, word_text, 0)
     print('Image Size', image.size)
-    draw = ImageDraw.Draw(image)
+    # draw = ImageDraw.Draw(image)
 
-    baseline = image.size[1] - descent
-    print('baseline', baseline)
-    # draw ascent
-    draw.rectangle((offsetx, offsety, offsetx+w, ascent), fill=(0,0,255,127))
-    # draw descent
-    draw.rectangle((offsetx, baseline, offsetx+w, baseline+abs(descent)), fill=(255,0,0,127))
+    # baseline = image.size[1] - descent
+    # print('baseline', baseline)
+    # # draw ascent
+    # draw.rectangle((offsetx, offsety, offsetx+w, ascent), fill=(0,0,255,127))
+    # # draw descent
+    # draw.rectangle((offsetx, baseline, offsetx+w, baseline+abs(descent)), fill=(255,0,0,127))
 
-    image.show()
+    image.save('a.png')
