@@ -165,7 +165,7 @@ class DepthCamera(object):
     """
     Camera functions for Depth-CNN camera.
     """
-    f = 520
+    f = 255
 
     @staticmethod
     def plane2xyz(center, ij, plane):
@@ -259,7 +259,7 @@ def unrotate2d(pts):
     """
     mu = np.median(pts,axis=0)
     pts -= mu[None,:]
-    l,R = np.linalg.eig(pts.T.dot(pts))
+    l, R = np.linalg.eig(pts.T.dot(pts))
     R = R / np.linalg.norm(R,axis=0)[None,:]
 
     # make R compatible with x-y axes:
@@ -271,7 +271,7 @@ def unrotate2d(pts):
         elif R[1,1]<0:
             R[:,1] *= -1
         else:
-            print "Rotation matrix not understood"
+            print ("Rotation matrix not understood")
             return
     if R[0,0]<0 and R[1,1]<0:
         R *= -1
