@@ -8,6 +8,7 @@ from skimage import io
 
 from datawriter import FolderWriter
 from synthgen import RendererV3
+import random
 
 # Define some configuration variables:
 NUM_IMG = -1  # no. of images to use for generation (-1 to use all available):
@@ -18,16 +19,18 @@ INSTANCE_PER_IMAGE = 10  # no. of times to use the same image
 # path to the data-file, containing image, depth and segmentation:
 DATA_PATH = Path('./SynthTextGen/')
 DB_FNAME = DATA_PATH / 'dset.h5'
+SEED = 2001
 
 
 def main(lang, out_path, total_samples, viz=False):
     writer = FolderWriter(out_path, total_samples, word_box=True)
     writer.open()
 
+    random.seed(SEED)
+    np.random.seed(SEED)
+
     RV3 = RendererV3(DATA_PATH, lang, max_time=SECS_PER_IMG)
     for i, info_path in enumerate(Path('outputs').glob('*.pkl')):
-        if i != 4:
-            continue
         with open(info_path, 'rb') as f:
             info = pickle.load(f)
         img = io.imread(info['image_path'])
@@ -36,14 +39,19 @@ def main(lang, out_path, total_samples, viz=False):
         area = info['area']
         label = info['label']
 
-        res = RV3.render_text(img, depth, seg, area, label,
-                              ninstance=INSTANCE_PER_IMAGE, viz=viz)
+        try:
+            res = RV3.render_text(img, depth, seg, area, label,
+                                ninstance=INSTANCE_PER_IMAGE, viz=viz)
+        except:
+            continue
+
         # print(res)
         if len(res) > 0:
             writer.write(res)
 
         # visualize the output:
         if viz:
+            plt.show(block=True)
             if 'q' == input('Continue? (q to quit)'):
                 break
 
