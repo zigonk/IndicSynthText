@@ -75,8 +75,9 @@ class Predictor:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('input_dir')
-    parser.add_argument('output_dir')
+    parser.add_argument('--input_dir', type=str, default=None)
+    parser.add_argument('--output_dir', type=str, default='outputs')
+    parser.add_argument('--image', type=str, default=None)
     parser.add_argument('--weight_path',
                         default='weights/midas_v21_small-70d6b9c8.pt',
                         help='path to the trained weights of model'
@@ -89,13 +90,21 @@ if __name__ == "__main__":
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True
 
-    input_dir = Path(args.input_dir)
+    if args.input_dir is None and args.image is None:
+        print('--input_dir or --image must be specified')
+        exit(-1)
+
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
 
     predictor = Predictor(args.weight_path)
 
-    input_paths = sorted(input_dir.glob('*'))
+    if args.image is not None:
+        input_paths = [Path(args.image)]
+    else:
+        input_dir = Path(args.input_dir)
+        input_paths = sorted(input_dir.glob('*'))
+
     num_images = len(input_paths)
     with torch.no_grad():
         for i, input_path in enumerate(input_paths):
