@@ -6,7 +6,7 @@ Main script for synthetic text rendering.
 """
 
 import copy
-from PIL import ImageFont
+from PIL import Image, ImageDraw, ImageFont
 import cv2
 import numpy as np
 #import mayavi.mlab as mym
@@ -352,12 +352,14 @@ class RendererV3(object):
         render_res = self.text_renderer.render_sample(font_name, font, collision_mask)
         if render_res is None:  # rendering not successful
             return  # None
-        else:
-            text_mask, loc, bb, text = render_res
+
+        text_mask, loc, bb, text = render_res
 
         # update the collision mask with text:
         cv2.bitwise_or(collision_mask, 255, dst=collision_mask, mask=text_mask)
-        # collision_mask += (255 * (text_mask > 0)).astype('uint8')
+        collision_mask += (255 * (text_mask > 0)).astype('uint8')
+        # plt.imshow(collision_mask)
+        # plt.show()
         # cv2.imshow('CollisionMask', collision_mask)
         # cv2.waitKey(0)
 
