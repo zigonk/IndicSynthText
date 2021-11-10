@@ -259,7 +259,7 @@ def unrotate2d(pts):
     """
     mu = np.median(pts,axis=0)
     pts -= mu[None,:]
-    l,R = np.linalg.eig(pts.T.dot(pts))
+    l, R = np.linalg.eig(pts.T.dot(pts))
     R = R / np.linalg.norm(R,axis=0)[None,:]
 
     # make R compatible with x-y axes:
