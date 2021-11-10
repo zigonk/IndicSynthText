@@ -4,7 +4,7 @@
 """
 Main script for synthetic text rendering.
 """
-
+import math
 import copy
 from PIL import Image, ImageDraw, ImageFont
 import cv2
@@ -125,6 +125,28 @@ def get_text_placement_mask(xyz, mask, plane, pad=2, viz=False):
     Hinv, _ = cv2.findHomography(pts_fp_i32[0].astype('float32').copy(),
                                  pts[0].astype('float32').copy(),
                                  method=0)
+
+
+    # word_rotation = -math.atan2(H[0,1], H[0,0]) * 180 / math.pi
+    # if abs(word_rotation) > 45:
+    #     print('Skip word due to angle')
+
+    #     # center = (0, 0)
+    #     center = np.mean(pts[0], axis=0)
+    #     # center = np.mean(pts_fp_i32[0], axis=0)
+    #     R = cv2.getRotationMatrix2D(center=center, angle=90, scale=1)
+    #     R = np.row_stack((R, np.array([0, 0, 1], dtype=np.float32)))
+    #     H = np.dot(H, R)
+
+    #     # center = np.mean(pts[0], axis=0)
+    #     center = np.mean(pts_fp_i32[0], axis=0)
+    #     R_inv = cv2.getRotationMatrix2D(center=center, angle=-90, scale=1)
+    #     R_inv = np.row_stack((R_inv, np.array([0, 0, 1], dtype=np.float32)))
+    #     Hinv = np.dot(Hinv, R_inv)
+
+    #     # continue
+
+
     if viz:
         plt.subplot(1, 2, 1)
         plt.imshow(mask)
@@ -363,34 +385,81 @@ class RendererV3(object):
         # cv2.imshow('CollisionMask', collision_mask)
         # cv2.waitKey(0)
 
+        # x_min, y_min = bb.reshape(2, -1).min(axis=1, keepdims=False)       # 2: xmin, ymin
+        # x_max, y_max = bb.reshape(2, -1).max(axis=1, keepdims=False)       # 2: xmax, ymax
+        # word_bbox = np.array([
+        #     [x_min, y_min],
+        #     [x_max, y_min],
+        #     [x_max, y_max],
+        #     [x_min, y_max],
+        # ])
+
         # debug = Image.fromarray(text_mask).convert('RGB')
         # draw = ImageDraw.Draw(debug)
         # debug_boxes = bb.transpose()
         # for box in debug_boxes:
         #     print(box)
         #     draw.polygon(box.flatten().tolist(), outline=(255,0,0))
-
+        # draw.polygon(word_bbox.flatten().tolist(), outline=(0, 255, 0))
         # debug.show()
         # exit(0)
 
         # warp the object mask back onto the image:
-        bb_orig = bb.copy()
+        char_bboxes_orig = bb.copy()        # 2x4xn
+        # import pdb; pdb.set_trace()
         text_mask = self.warpHomography(text_mask, H, rgb.shape[:2][::-1])
-        bb = self.homographyBB(bb, Hinv)
+        char_bboxes = self.homographyBB(char_bboxes_orig, Hinv)
 
-        if not self.bb_filter(bb_orig, bb, text):
+        if not self.bb_filter(char_bboxes_orig, char_bboxes, text):
             print("bad charBB statistics")
             return  # None
 
+        x_min, y_min = char_bboxes_orig.reshape(2, -1).min(axis=1, keepdims=False)       # 2: xmin, ymin
+        x_max, y_max = char_bboxes_orig.reshape(2, -1).max(axis=1, keepdims=False)       # 2: xmax, ymax
+        word_bbox = np.array([
+            [x_min, y_min],
+            [x_max, y_min],
+            [x_max, y_max],
+            [x_min, y_max],
+        ]).T  # 4, 2 -> 2, 4
+        word_bbox = self.homographyBB(word_bbox[..., np.newaxis], Hinv)  # 2, 4, 1
+
+        word_rotation = -math.atan2(H[0,1], H[0,0]) * 180 / math.pi
+        print('rotation', word_rotation)
+
+        if abs(word_rotation) > 120:
+            center = np.mean(word_bbox.squeeze(-1), axis=1)             # (2,)
+            R = cv2.getRotationMatrix2D(center=center, angle=180, scale=1)
+            # text_mask = cv2.warpAffine(text_mask, R, text_mask.shape[:2][::-1], borderValue=0, borderMode=cv2.BORDER_CONSTANT)
+            R = np.row_stack((R, np.array([0, 0, 1], dtype=np.float32)))
+            text_mask = self.warpHomography(text_mask, R, text_mask.shape[:2][::-1])
+            word_bbox = self.homographyBB(word_bbox, R)
+            char_bboxes = self.homographyBB(char_bboxes, R)
+
+        if abs(word_rotation) > 45:
+            return None
+
         # get the minimum height of the character-BB:
-        min_h = self.get_min_h(bb, text)
+        min_h = self.get_min_h(char_bboxes, text)
 
         # feathering:
         text_mask = self.feather(text_mask, min_h)
 
+        # after warping
+        # debug = Image.fromarray(text_mask).convert('RGB')
+        # draw = ImageDraw.Draw(debug)
+        # debug_boxes = char_bboxes.transpose()
+        # for box in debug_boxes:
+        #     print(box)
+        #     draw.polygon(box.flatten().tolist(), outline=(255,0,0))
+        # debug_word_box = word_bbox.transpose()
+        # draw.polygon(debug_word_box.flatten().tolist(), outline=(0, 255, 0))
+        # debug.show()
+        # exit(0)
+
         im_final = self.colorizer.color(rgb, [text_mask], np.array([min_h]))
 
-        return im_final, text, bb, collision_mask
+        return im_final, text, char_bboxes, word_bbox, collision_mask
 
     def get_num_text_regions(self, nregions):
         # return nregions
@@ -400,49 +469,6 @@ class RendererV3(object):
         else:
             rnd = np.random.beta(5.0, 1.0)
         return int(np.ceil(nmax * rnd))
-
-    def char2wordBB(self, charBB, text):
-        """
-        Converts character bounding-boxes to word-level
-        bounding-boxes.
-
-        charBB : 2x4xn matrix of BB coordinates
-        text   : the text string
-
-        output : 2x4xm matrix of BB coordinates,
-                 where, m == number of words.
-        """
-        # if lang == 'arab' or 'urdu':
-        #    return charBB for arab
-        wrds = text.split()
-        bb_idx = np.r_[0, np.cumsum([len(w) for w in wrds])]
-        wordBB = np.zeros((2, 4, len(wrds)), 'float32')
-
-        for i in range(len(wrds)):
-            cc = charBB[:, :, bb_idx[i]:bb_idx[i+1]]
-
-            # fit a rotated-rectangle:
-            # change shape from 2x4xn_i -> (4*n_i)x2
-            cc = np.squeeze(np.concatenate(
-                np.dsplit(cc, cc.shape[-1]), axis=1)).T.astype('float32')
-            rect = cv2.minAreaRect(cc.copy())
-            box = np.array(cv2.boxPoints(rect))
-
-            # find the permutation of box-coordinates which
-            # are "aligned" appropriately with the character-bb.
-            # (exhaustive search over all possible assignments):
-            cc_tblr = np.c_[cc[0, :],
-                            cc[-3, :],
-                            cc[-2, :],
-                            cc[3, :]].T
-            perm4 = np.array(list(itertools.permutations(np.arange(4))))
-            dists = []
-            for pidx in range(perm4.shape[0]):
-                d = np.sum(np.linalg.norm(box[perm4[pidx], :]-cc_tblr, axis=1))
-                dists.append(d)
-            wordBB[:, :, i] = box[perm4[np.argmin(dists)], :].T
-
-        return wordBB
 
     def render_text(self, rgb, depth, seg, area, label, ninstance=1, viz=False):
         """
@@ -506,6 +532,7 @@ class RendererV3(object):
             img = rgb.copy()
             itext = []
             ibb = []
+            iword_bb = []
 
             # process regions:
             num_txt_regions = len(reg_idx)
@@ -515,10 +542,13 @@ class RendererV3(object):
                 ireg = reg_idx[idx]
                 # try:
                 # if self.max_time is None:
+                H = regions['homography'][ireg]
+                H_inv = regions['homography_inv'][ireg]
+
                 txt_render_res = self.place_text(img,
                                                  place_masks[ireg],
-                                                 regions['homography'][ireg],
-                                                 regions['homography_inv'][ireg])
+                                                 H,
+                                                 H_inv)
                 # else:
                 #     with time_limit(self.max_time):
                 #         txt_render_res = self.place_text(img,
@@ -535,20 +565,20 @@ class RendererV3(object):
 
                 if txt_render_res is not None:
                     placed = True
-                    img, text, bb, collision_mask = txt_render_res
+                    img, text, bb, word_bb, collision_mask = txt_render_res
                     # update the region collision mask:
                     place_masks[ireg] = collision_mask
                     # store the result:
                     itext.append(text)
                     ibb.append(bb)
+                    iword_bb.append(word_bb)
 
             if placed:
                 # at least 1 word was placed in this instance:
                 idict['img'] = img
                 idict['txt'] = itext
                 idict['charBB'] = np.concatenate(ibb, axis=2)
-                idict['wordBB'] = self.char2wordBB(
-                    idict['charBB'].copy(), ' '.join(itext))
+                idict['wordBB'] = np.concatenate(iword_bb, axis=2)
                 res.append(idict.copy())
                 if viz:
                     viz_textbb(1, img, [idict['wordBB']], alpha=1.0)
