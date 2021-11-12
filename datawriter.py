@@ -1,6 +1,5 @@
 from typing import Dict, List
 import io
-import lmdb
 from PIL import Image
 from pathlib import Path
 import warnings
@@ -17,6 +16,12 @@ class LMDBDataWriter(DataWriter):
         self.map_size = map_size
         self.max_samples = max_samples
         self.cache_size = 1000
+        try:
+            import lmdb
+        except ImportError:
+            print('Install lmdb if you want to use LMDBDataWriter. e.g.: pip install lmdb')
+            exit(-1)
+
 
     def open(self):
         self._cache = {}
