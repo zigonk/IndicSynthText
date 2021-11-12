@@ -10,9 +10,8 @@ import numpy as np
 from PIL import ImageFont
 
 
-def gen_fontmodel(font_dir: Path, output_dir: Path, show: bool = False):
-    chars_dict = set(
-        Path('SynthTextGen/newsgroup/newsgroupvn.txt').read_text('utf-8'))
+def gen_fontmodel(text_path: Path, font_dir: Path, output_dir: Path, show: bool = False):
+    chars_dict = set(text_path.read_text('utf-8'))
     chars = ''.join(chars_dict)
 
     font_sizes = np.arange(8, 200)
@@ -20,7 +19,7 @@ def gen_fontmodel(font_dir: Path, output_dir: Path, show: bool = False):
 
     models = {}  # linear model
 
-    font_paths = sorted(font_dir.glob('**/*'))
+    font_paths = sorted(font_dir.glob('**/*.ttf'))
 
     for font_path in font_paths:
         font_name = font_path.stem
@@ -49,12 +48,15 @@ def gen_fontmodel(font_dir: Path, output_dir: Path, show: bool = False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--font_dir', default='SynthTextGen/fonts')
-    parser.add_argument('--output_dir', default='SynthTextGen/models')
-    parser.add_argument('--lang', type=str, default='vn',
-                        help='Language code. Ref: https://www.w3.org/International/articles/language-tags/')
+    parser.add_argument('text_path')
+    parser.add_argument('font_dir')
+    parser.add_argument('--output_dir', default='outputs_invert_fontsize')
     parser.add_argument('--show', action='store_true', default=False)
     args = parser.parse_args()
+
+    text_path = Path(args.text_path)
     font_dir = Path(args.font_dir)
     output_dir = Path(args.output_dir)
+    output_dir.mkdir(exist_ok=True, parents=True)
+
     gen_fontmodel(font_dir, output_dir, args.show)
