@@ -151,12 +151,11 @@ class FontColor(object):
 
 class Colorize(object):
 
-    def __init__(self, model_dir: Path = Path('data')):  # , im_path):
+    def __init__(self, color_model_path: Path):  # , im_path):
         # # get a list of background-images:
         # imlist = [osp.join(im_path,f) for f in os.listdir(im_path)]
         # self.bg_list = [p for p in imlist if osp.isfile(p)]
-
-        self.font_color = FontColor(model_dir / 'models' / 'colors_new.cp')
+        self.font_color = FontColor(color_model_path)
 
         # probabilities of different text-effects:
         self.p_bevel = 0.05  # add bevel effect to text
