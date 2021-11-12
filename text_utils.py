@@ -1,5 +1,5 @@
 from __future__ import division
-from typing import List
+from typing import List, Optional
 import numpy as np
 import matplotlib.pyplot as plt
 import random
@@ -84,7 +84,7 @@ class RenderFont(object):
         Also, outputs ground-truth bounding boxes and text string
     """
 
-    def __init__(self, lang, data_dir: Path = Path('data')):
+    def __init__(self, font_dir: Path, font_model_path: Path, text_path: Path):
         # distribution over the type of text:
         # whether to get a single word, paragraph or a line:
         self.p_text = {1.0: 'WORD',
@@ -104,13 +104,12 @@ class RenderFont(object):
         # curved baseline:
         self.p_curved = 1.0
         self.baselinestate = BaselineState.get_sample()
-        file_path = 'newsgroup/newsgroup'+lang+'.txt'
         # text-source : gets english text:
         self.text_source = TextSource(min_nchar=self.min_nchar,
-                                      fn=data_dir / file_path)
+                                      fn=text_path)
 
         # get font-state object:
-        self.font_state = FontState(data_dir)
+        self.font_state = FontState(font_dir, font_model_path)
 
     def render_multiline(self, font: ImageFont.FreeTypeFont, text):
         """
@@ -445,15 +444,7 @@ class FontState(object):
     random_kerning = 0.2
     random_kerning_amount = 0.1
 
-    def __init__(self, data_dir: Path = Path('data'), create_model=False):
-
-        char_freq_path = data_dir / 'models/char_freq.cp'
-        if create_model:
-            font_model_path = data_dir / 'models/font_px2pt.cp'
-        else:
-            # font_model_path = osp.join(
-            #     data_dir, 'models/font_px2pt'+lang+'.cp')
-            font_model_path = data_dir / 'models/font_px2pt.pkl'
+    def __init__(self, font_dir: Path, font_model_path: Path, char_freq_path: Optional[Path] = None, create_model=False):
 
         # get character-frequencies in the English language:
         # with open(char_freq_path,'rb') as f:
@@ -468,8 +459,9 @@ class FontState(object):
             self.font_model = pickle.load(f)
 
         # get the names of fonts to use:
-        self.fonts = sorted((data_dir / 'fonts').glob('**/*'))
+        self.fonts = sorted(font_dir.glob('**/*.ttf'))
         print(self.fonts)
+        print(f'Total: {len(self.fonts)} font(s)')
 
     def get_aspect_ratio(self, font, size=None):
         """

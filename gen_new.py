@@ -17,9 +17,13 @@ SECS_PER_IMG = None  # max time per image in seconds
 # INSTANCE_PER_IMAGE = 900  # no. of times to use the same image
 INSTANCE_PER_IMAGE = 10  # no. of times to use the same image
 # path to the data-file, containing image, depth and segmentation:
-DATA_PATH = Path('./SynthTextGen/')
-DB_FNAME = DATA_PATH / 'dset.h5'
 SEED = 2001
+DATA_PATH = Path('./aic_data/')
+BACKGROUND_DIR = DATA_PATH / 'background'
+FONT_DIR = DATA_PATH / 'fonts'
+TEXT_PATH = DATA_PATH / 'vin-vnm.txt'
+COLOR_MODEL_PATH = DATA_PATH / 'models' / 'colors_new.cp'
+FONT_MODEL_PATH = DATA_PATH / 'models' / 'font_px2pt.pkl'
 
 
 def main(lang, out_path, total_samples, viz=False):
@@ -29,7 +33,7 @@ def main(lang, out_path, total_samples, viz=False):
     random.seed(SEED)
     np.random.seed(SEED)
 
-    RV3 = RendererV3(DATA_PATH, lang, max_time=SECS_PER_IMG)
+    RV3 = RendererV3(COLOR_MODEL_PATH, FONT_DIR, TEXT_PATH, FONT_MODEL_PATH, max_time=SECS_PER_IMG)
     for i, info_path in enumerate(Path('outputs').glob('*.pkl')):
         with open(info_path, 'rb') as f:
             info = pickle.load(f)

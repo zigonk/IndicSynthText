@@ -240,9 +240,9 @@ def viz_textbb(fignum, text_im, bb_list, alpha=1.0):
 
 class RendererV3(object):
 
-    def __init__(self, data_dir, lang, max_time=None):
-        self.text_renderer = tu.RenderFont(lang, data_dir)
-        self.colorizer = Colorize(data_dir)
+    def __init__(self, color_model_path, font_dir, text_path, font_model_path, max_time=None):
+        self.text_renderer = tu.RenderFont(font_dir, font_model_path, text_path)
+        self.colorizer = Colorize(color_model_path)
         #self.colorizerV2 = colorV2.Colorize(data_dir)
 
         self.min_char_height = 8  # px
