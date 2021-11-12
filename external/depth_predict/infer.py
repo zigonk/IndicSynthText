@@ -112,6 +112,6 @@ if __name__ == "__main__":
             image = utils.read_image(str(input_path))
             prediction = predictor.predict(image)
             output_path = (output_dir / input_path.name).with_suffix('.png')
-            utils.write_depth(output_path, prediction, bits=1)
+            utils.write_depth(output_path, prediction, pfm=False, bits=1)
 
         print("finished")
