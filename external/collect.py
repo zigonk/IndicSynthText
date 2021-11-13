@@ -17,21 +17,22 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
 
-    depth_imgs = sorted(depth_output_dir.glob('*.png'))
+    depth_pkls = sorted(depth_output_dir.glob('*.pkl'))
     seg_pkls = sorted(seg_output_dir.glob('*.pkl'))
-    assert len(depth_imgs) == len(seg_pkls), f'{len(depth_imgs)} != {len(seg_pkls)}'
+    assert len(depth_pkls) == len(seg_pkls), f'{len(depth_pkls)} != {len(seg_pkls)}'
 
-    num_images = len(depth_imgs)
+    num_images = len(depth_pkls)
 
     if num_images == 0:
         print('No images.')
         exit(0)
 
-    for i, (depth_img_path, seg_pkl) in enumerate(zip(depth_imgs, seg_pkls)):
-        assert depth_img_path.stem == seg_pkl.stem, f'{depth_img_path.stem} != {seg_pkl.stem}'
+    for i, (depth_pkl, seg_pkl) in enumerate(zip(depth_pkls, seg_pkls)):
+        assert depth_pkl.stem == seg_pkl.stem, f'{depth_pkl.stem} != {seg_pkl.stem}'
 
-        print(f'{i+1}/{num_images}: {depth_img_path}')
-        depth_image = io.imread(str(depth_img_path), as_gray=True)
+        print(f'{i+1}/{num_images}: {depth_pkl}')
+        with open(depth_pkl, 'rb') as f:
+            depth_image = pickle.load(f)
         with open(seg_pkl, 'rb') as f:
             seg_info = pickle.load(f)
 
@@ -43,7 +44,7 @@ def main():
         info['label'] = seg_info['label']
         info['area'] = seg_info['area']
 
-        output_path = output_dir / (depth_img_path.stem + '.pkl')
+        output_path = output_dir / (depth_pkl.stem + '.pkl')
         with open(output_path, 'wb') as f:
             pickle.dump(info, f)
 

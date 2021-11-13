@@ -2,6 +2,7 @@
 """
 import argparse
 from pathlib import Path
+import pickle
 
 import cv2
 import numpy as np
@@ -76,7 +77,8 @@ class Predictor:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--input_dir', type=str, default=None)
-    parser.add_argument('--output_dir', type=str, default='outputs')
+    parser.add_argument('--output_dir', type=str, default='outputs_depth')
+    parser.add_argument('--format', type=str, choices=['pickle', 'png'])
     parser.add_argument('--image', type=str, default=None)
     parser.add_argument('--weight_path',
                         default='weights/midas_v21_small-70d6b9c8.pt',
@@ -111,7 +113,12 @@ if __name__ == "__main__":
             print("[{:05d}/{:05d}] {}".format(i + 1, num_images, input_path))
             image = utils.read_image(str(input_path))
             prediction = predictor.predict(image)
-            output_path = (output_dir / input_path.name).with_suffix('.png')
-            utils.write_depth(output_path, prediction, pfm=False, bits=1)
+            if args.format == 'pickle':
+                output_path = (output_dir / input_path.name).with_suffix('.pkl')
+                with open(output_path, 'wb') as f:
+                    pickle.dump(prediction, f)
+            else:
+                output_path = (output_dir / input_path.name).with_suffix('.png')
+                utils.write_depth(output_path, prediction, pfm=False, bits=1)
 
         print("finished")
