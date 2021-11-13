@@ -59,4 +59,4 @@ if __name__ == '__main__':
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
 
-    gen_fontmodel(font_dir, output_dir, args.show)
+    gen_fontmodel(text_path, font_dir, output_dir, args.show)
