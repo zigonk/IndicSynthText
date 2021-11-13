@@ -73,7 +73,7 @@ def main():
         print(f'{i+1}/{num_images}: {image_path}')
         image = io.imread(image_path)
         info = {}
-        info['image_path'] = str(image_path.resolve())
+        info['image_path'] = image_path.name
         info['image'] = image.copy()                        # 0-255 (H, W, C)
         image = img_as_float(image)
         info.update(segmentation(image))                          # 0-255 (H, W)
