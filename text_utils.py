@@ -173,10 +173,11 @@ class RenderFont(object):
         use curved baseline for rendering word
         """
         def draw_char(font: ImageFont.FreeTypeFont, ch: str, rotation: float):
-            ch_bb = list(font.getbbox(ch))
-            ch_image = Image.new('RGBA', (ch_bb[2], ch_bb[3]), (0, 0, 0, 0))
+            offsetx, offsety, w, h = list(font.getbbox(ch))
+            ch_image = Image.new('RGBA', (w, h), (0, 0, 0, 0))
             draw = ImageDraw.Draw(ch_image)
             draw.text((0, 0), ch, font=font, fill=(255, 255, 255, 255))
+            ch_image = ch_image.crop((offsetx, offsety, w, h))
             ch_image = ch_image.rotate(rotation, Image.BICUBIC, expand=True)
             return ch_image
 
