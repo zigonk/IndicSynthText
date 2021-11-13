@@ -29,6 +29,7 @@ def main(data_dir, info_dir, font_dir, text_path, out_path, total_samples, viz=F
     DATA_PATH = Path(data_dir)
     FONT_DIR = Path(font_dir)
     TEXT_PATH = Path(text_path)
+    IMAGE_DIR = DATA_PATH / 'background'
     COLOR_MODEL_PATH = DATA_PATH / 'models' / 'colors_new.cp'
     FONT_MODEL_PATH = DATA_PATH / 'models' / 'font_px2pt.pkl'
 
@@ -36,7 +37,7 @@ def main(data_dir, info_dir, font_dir, text_path, out_path, total_samples, viz=F
     for i, info_path in enumerate(Path(info_dir).glob('*.pkl')):
         with open(info_path, 'rb') as f:
             info = pickle.load(f)
-        img = io.imread(info['image_path'])
+        img = io.imread(str(IMAGE_DIR / info['image_path']))
         depth = info['depth']
         seg = info['seg']
         area = info['area']
