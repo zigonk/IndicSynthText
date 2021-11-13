@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from skimage import io
 
-from datawriter import FolderWriter
+from datawriter import FolderWriter, ICDAR2015Writer
 from synthgen import RendererV3
 import random
 
@@ -20,7 +20,7 @@ INSTANCE_PER_IMAGE = 10  # no. of times to use the same image
 SEED = 2001
 
 def main(data_dir, info_dir, font_dir, text_path, out_path, total_samples, viz=False):
-    writer = FolderWriter(out_path, total_samples, word_box=True)
+    writer = ICDAR2015Writer(out_path, total_samples)
     writer.open()
 
     random.seed(SEED)

@@ -4,6 +4,8 @@ from PIL import Image
 from pathlib import Path
 import warnings
 import json
+import numpy as np
+import csv
 
 
 class DataWriter:
@@ -137,6 +139,64 @@ class FolderWriter(DataWriter):
                     json_dict['word_boxes'].append(item)
 
                 json.dump(json_dict, f, indent=2)
+
+            self._counter += 1
+
+            if self._counter == self.max_samples:
+                break
+
+    def close(self):
+        pass
+
+
+class ICDAR2015Writer(FolderWriter):
+
+    def __init__(self,
+                 output_dir: str,
+                 max_samples: int,
+                 image_ext: str = '.png'):
+        self.output_dir = Path(output_dir)
+        self.max_samples = max_samples
+        self.image_ext = image_ext
+
+        self.image_out_dir = self.output_dir / "images"
+        self.image_out_dir.mkdir(exist_ok=True, parents=True)
+        self.label_dir = self.output_dir / "labels"
+        self.label_dir.mkdir(exist_ok=True, parents=True)
+
+    def open(self):
+        self._counter = 0
+
+    def write(self, results: List[Dict]):
+
+        for result_idx, result in enumerate(results):
+            img = result['img']
+            nw = len(result['txt'])
+            label = result['txt']
+            bbox = result['wordBB']   # (2, 4, num_words)
+            bbox = bbox.transpose()  # (num_words, 4, 2)
+            bbox = bbox.astype(np.int32)
+            try:
+                image_pil = Image.fromarray(img)
+            except ValueError:
+                continue
+
+            image_name = f'image-{self._counter:09d}{self.image_ext}'
+            image_path = self.image_out_dir / image_name
+            image_pil.save(image_path, format='PNG')
+
+            label_name = f'label-{self._counter:09d}.txt'
+            label_path = self.label_dir / label_name
+
+            lines = []
+            for i, word in enumerate(result['txt']):
+                line = list(map(str, bbox[i].reshape(-1).tolist())) # [x1, y1, ...x4, y4]
+                line.append(word)
+                lines.append(line)
+
+            with open(label_path, 'wt', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerows(lines)
 
             self._counter += 1
 
