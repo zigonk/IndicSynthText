@@ -78,7 +78,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--input_dir', type=str, default=None)
     parser.add_argument('--output_dir', type=str, default='outputs_depth')
-    parser.add_argument('--format', type=str, choices=['pickle', 'png'])
     parser.add_argument('--image', type=str, default=None)
     parser.add_argument('--weight_path',
                         default='weights/midas_v21_small-70d6b9c8.pt',
@@ -86,6 +85,7 @@ if __name__ == "__main__":
                         )
     parser.add_argument('--top_k', default=10**6, type=int,
                         help='Run on top_k images in input_dir')
+    parser.add_argument('--vis_dir', default='outputs_depth_vis')
     args = parser.parse_args()
 
     # set torch options
@@ -98,6 +98,9 @@ if __name__ == "__main__":
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
+
+    vis_dir = Path(args.vis_dir)
+    vis_dir.mkdir(exist_ok=True, parents=True)
 
     predictor = Predictor(args.weight_path)
 
@@ -113,12 +116,12 @@ if __name__ == "__main__":
             print("[{:05d}/{:05d}] {}".format(i + 1, num_images, input_path))
             image = utils.read_image(str(input_path))
             prediction = predictor.predict(image)
-            if args.format == 'pickle':
-                output_path = (output_dir / input_path.name).with_suffix('.pkl')
-                with open(output_path, 'wb') as f:
-                    pickle.dump(prediction, f)
-            else:
-                output_path = (output_dir / input_path.name).with_suffix('.png')
-                utils.write_depth(output_path, prediction, pfm=False, bits=1)
+            # write pickle file
+            output_path = (output_dir / input_path.name).with_suffix('.pkl')
+            with open(output_path, 'wb') as f:
+                pickle.dump(prediction, f)
+            # write image file for visualization
+            vis_path = (vis_dir / input_path.name).with_suffix('.png')
+            utils.write_depth(vis_path, prediction, pfm=False, bits=1)
 
         print("finished")
