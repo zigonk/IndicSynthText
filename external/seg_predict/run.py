@@ -55,6 +55,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('input_dir')
     parser.add_argument('--output_dir', default='outputs_seg')
+    parser.add_argument('--vis_dir', default='outputs_seg_vis')
     parser.add_argument('--top_k', default=float('inf'), type=float)
     parser.add_argument('--show', action='store_true', default=False)
     args = parser.parse_args()
@@ -69,6 +70,9 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
 
+    vis_dir = Path(args.vis_dir)
+    vis_dir.mkdir(exist_ok=True, parents=True)
+
     for i, image_path in enumerate(image_paths):
         print(f'{i+1}/{num_images}: {image_path}')
         image = io.imread(image_path)
@@ -80,6 +84,10 @@ def main():
         save_info(info, image_path, output_dir)
         if args.show:
             show_info(info)
+
+        vis_image = label2rgb(info['seg'], image, alpha=0.8, bg_label=0)
+        vis_image = img_as_ubyte(vis_image)
+        io.imsave(str(vis_dir / image_path.name), vis_image)
 
         if i + 1 > args.top_k:
             break
