@@ -1,7 +1,6 @@
 import argparse
 from pathlib import Path
 from typing import Dict
-import cv2
 
 import numpy as np
 from skimage import io
@@ -9,7 +8,6 @@ from skimage.color import label2rgb, rgb2gray
 from skimage.segmentation import mark_boundaries, slic, felzenszwalb
 from skimage.util import img_as_float, img_as_ubyte
 
-import imutils
 import matplotlib.pyplot as plt
 import pickle
 
@@ -58,9 +56,6 @@ def main():
     parser.add_argument('input_dir')
     parser.add_argument('--output_dir', default='outputs_seg')
     parser.add_argument('--vis_dir', default='outputs_seg_vis')
-    parser.add_argument('--max_width', default=1920, type=int)
-    parser.add_argument('--max_height', default=1080, type=int)
-    parser.add_argument('--max_size', default=1024, type=int)
     parser.add_argument('--top_k', default=float('inf'), type=float)
     parser.add_argument('--show', action='store_true', default=False)
     args = parser.parse_args()
@@ -81,13 +76,6 @@ def main():
     for i, image_path in enumerate(image_paths):
         print(f'{i+1}/{num_images}: {image_path}')
         image = io.imread(image_path)
-        h, w = image.shape[:2]
-        if h > w and h > args.max_height:
-            image = imutils.resize(image, height=args.max_height, inter=cv2.INTER_LINEAR)
-        elif w > h and w > args.max_width:
-            image = imutils.resize(image, width=args.max_width, inter=cv2.INTER_LINEAR)
-        elif h == w and h > args.max_size:
-            image = imutils.resize(image, height=args.max_size, inter=cv2.INTER_LINEAR)
         info = {}
         info['image_path'] = image_path.name
         info['image'] = image.copy()                        # 0-255 (H, W, C)
