@@ -117,9 +117,8 @@ if __name__ == "__main__":
             image = utils.read_image(str(input_path))
             prediction = predictor.predict(image)
             # write pickle file
-            output_path = (output_dir / input_path.name).with_suffix('.pkl')
-            with open(output_path, 'wb') as f:
-                pickle.dump(prediction, f)
+            output_path = (output_dir / input_path.name).with_suffix('.npz')
+            np.savez_compressed(output_path, depth=prediction)
             # write image file for visualization
             vis_path = (vis_dir / input_path.name).with_suffix('.png')
             utils.write_depth(vis_path, prediction, pfm=False, bits=1)

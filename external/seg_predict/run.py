@@ -9,7 +9,6 @@ from skimage.segmentation import mark_boundaries, slic, felzenszwalb
 from skimage.util import img_as_float, img_as_ubyte
 
 import matplotlib.pyplot as plt
-import pickle
 
 
 def segmentation(image: np.ndarray):
@@ -46,9 +45,8 @@ def show_info(info: Dict):
 
 
 def save_info(info: Dict, input_path: Path, output_dir: Path):
-    output_path = output_dir / (input_path.stem + '.pkl')
-    with open(output_path, 'wb') as f:
-        pickle.dump(info, f)
+    output_path = (output_dir / input_path.name).with_suffix('.npz')
+    np.savez_compressed(output_path, **info)
 
 
 def main():
@@ -77,8 +75,6 @@ def main():
         print(f'{i+1}/{num_images}: {image_path}')
         image = io.imread(image_path)
         info = {}
-        info['image_path'] = image_path.name
-        info['image'] = image.copy()                        # 0-255 (H, W, C)
         image = img_as_float(image)
         info.update(segmentation(image))                          # 0-255 (H, W)
         save_info(info, image_path, output_dir)
