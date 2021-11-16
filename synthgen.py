@@ -47,6 +47,31 @@ def rescale_frontoparallel(p_fp, box_fp, p_im):
         s = 1.0
     return s
 
+def euler_to_rotMat(rot_x, rot_y, rot_z):
+    yaw, pitch, roll = rot_y, rot_x, rot_z
+    Rz_yaw = np.array([
+        [np.cos(yaw), -np.sin(yaw), 0],
+        [np.sin(yaw),  np.cos(yaw), 0],
+        [          0,            0, 1]])
+    Ry_pitch = np.array([
+        [ np.cos(pitch), 0, np.sin(pitch)],
+        [             0, 1,             0],
+        [-np.sin(pitch), 0, np.cos(pitch)]])
+    Rx_roll = np.array([
+        [1,            0,             0],
+        [0, np.cos(roll), -np.sin(roll)],
+        [0, np.sin(roll),  np.cos(roll)]])
+    # R = RzRyRx
+    rotMat = np.dot(Rz_yaw, np.dot(Ry_pitch, Rx_roll))
+    return rotMat
+
+def rot_mat_to_euler(R):
+    assert R.shape == (3, 3)
+    rot_y = math.asin(R[2, 0]) * 180 / math.pi
+    rot_x = math.atan2(R[2, 1], R[2, 2]) * 180 / math.pi
+    rot_z = math.atan2(R[0, 1], R[0, 0]) * 180 / math.pi
+    return rot_x, rot_y, rot_z
+
 
 def get_text_placement_mask(xyz, mask, plane, pad=2, viz=False):
     """
@@ -70,17 +95,29 @@ def get_text_placement_mask(xyz, mask, plane, pad=2, viz=False):
     # bring the contour 3d points to fronto-parallel config:
     pts, pts_fp = [], []
     center = np.array([W, H])/2
-    n_front = np.array([0.0, 0.0, -1.0])
+
+    R = su.rot3d(plane[:3], np.array([0.0, 0.0, -1.0]))
+    # See here: https://www.youtube.com/watch?v=19-USJUkfbI
+    rot_x, rot_y, rot_z = rot_mat_to_euler(R)
+    print('old', [rot_x, rot_y, rot_z])
+
+    # fix mirror
+    if abs(rot_x) > 160 and abs(rot_z) > 160:
+        r_ = -180 if rot_x > 0 else 180
+        R_ = euler_to_rotMat(rot_x + r_, rot_y, rot_z - 2 * r_)
+        R = np.dot(R, R_.T)
+        print('new', rot_mat_to_euler(R))
+
     for i in range(len(contour)):
         cnt_ij = contour[i]
         xyz = su.DepthCamera.plane2xyz(center, cnt_ij, plane)
-        R = su.rot3d(plane[:3], n_front)
         xyz = xyz.dot(R.T)
         pts_fp.append(xyz[:, :2])
         pts.append(cnt_ij)
 
     # unrotate in 2D plane:
     rect = cv2.minAreaRect(pts_fp[0].copy().astype('float32'))
+    print('rect', rect)
     box = np.array(cv2.boxPoints(rect))
     R2d = su.unrotate2d(box.copy())
     # to fix inverted or mirrored text
@@ -150,9 +187,11 @@ def get_text_placement_mask(xyz, mask, plane, pad=2, viz=False):
     if viz:
         plt.subplot(1, 2, 1)
         plt.imshow(mask)
+        for i in range(len(pts)):
+            plt.scatter(pts[i][:, 0], pts[i][:, 1],
+                        edgecolors='none', facecolor='r', alpha=0.5)
         plt.subplot(1, 2, 2)
         plt.imshow(~place_mask)
-        plt.hold(True)
         for i in range(len(pts_fp_i32)):
             plt.scatter(pts_fp_i32[i][:, 0], pts_fp_i32[i][:, 1],
                         edgecolors='none', facecolor='g', alpha=0.5)
@@ -264,7 +303,7 @@ class RendererV3(object):
         masks, Hs, Hinvs = [], [], []
         for idx, l in enumerate(regions['label']):
             res = get_text_placement_mask(
-                xyz, seg == l, regions['coeff'][idx], pad=2)
+                xyz, seg == l, regions['coeff'][idx], pad=2, viz=False)
             if res is not None:
                 mask, H, Hinv = res
                 masks.append(mask)
@@ -424,10 +463,12 @@ class RendererV3(object):
         ]).T  # 4, 2 -> 2, 4
         word_bbox = self.homographyBB(word_bbox[..., np.newaxis], Hinv)  # 2, 4, 1
 
+        # print('homography:', rot_mat_to_euler(H))
         word_rotation = -math.atan2(H[0,1], H[0,0]) * 180 / math.pi
-        print('rotation', word_rotation)
+        # word_rotation = -math.atan2(H[0,1], H[0,0]) * 180 / math.pi
+        print('text', text, 'rotation', word_rotation)
 
-        if abs(word_rotation) > 120:
+        if abs(word_rotation) > 100:
             center = np.mean(word_bbox.squeeze(-1), axis=1)             # (2,)
             R = cv2.getRotationMatrix2D(center=center, angle=180, scale=1)
             # text_mask = cv2.warpAffine(text_mask, R, text_mask.shape[:2][::-1], borderValue=0, borderMode=cv2.BORDER_CONSTANT)
@@ -436,8 +477,8 @@ class RendererV3(object):
             word_bbox = self.homographyBB(word_bbox, R)
             char_bboxes = self.homographyBB(char_bboxes, R)
 
-        if abs(word_rotation) > 45:
-            return None
+        # if abs(word_rotation) > 45:
+        #     return None
 
         # get the minimum height of the character-BB:
         min_h = self.get_min_h(char_bboxes, text)
