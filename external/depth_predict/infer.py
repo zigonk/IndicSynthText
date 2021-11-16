@@ -9,6 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torchvision.transforms import Compose
+import imutils
 
 from . import utils
 from .midasnet import MidasNet_small
@@ -83,6 +84,9 @@ if __name__ == "__main__":
                         default='weights/midas_v21_small-70d6b9c8.pt',
                         help='path to the trained weights of model'
                         )
+    parser.add_argument('--max_width', default=1920, type=int)
+    parser.add_argument('--max_height', default=1080, type=int)
+    parser.add_argument('--max_size', default=1024, type=int)
     parser.add_argument('--top_k', default=10**6, type=int,
                         help='Run on top_k images in input_dir')
     parser.add_argument('--vis_dir', default='outputs_depth_vis')
@@ -115,6 +119,13 @@ if __name__ == "__main__":
         for i, input_path in enumerate(input_paths):
             print("[{:05d}/{:05d}] {}".format(i + 1, num_images, input_path))
             image = utils.read_image(str(input_path))
+            h, w = image.shape[:2]
+            if h > w and h > args.max_height:
+                image = imutils.resize(image, height=args.max_height, inter=cv2.INTER_LINEAR)
+            elif w > h and w > args.max_width:
+                image = imutils.resize(image, width=args.max_width, inter=cv2.INTER_LINEAR)
+            elif h == w and h > args.max_size:
+                image = imutils.resize(image, height=args.max_size, inter=cv2.INTER_LINEAR)
             prediction = predictor.predict(image)
             # write pickle file
             output_path = (output_dir / input_path.name).with_suffix('.pkl')
