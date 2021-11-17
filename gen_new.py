@@ -47,6 +47,9 @@ def main(bg_dir: Path, depth_dir: Path, seg_dir: Path, font_dir: Path,
         img = io.imread(str(image_path))
         with np.load(depth_path) as data:
             depth = data['depth']
+            depth = (depth - depth.min()) / (depth.max() - depth.min())
+            depth = 1 - depth
+            depth = depth * 255
         with np.load(seg_path) as data:
             seg = data['seg']
             area = data['area']
@@ -54,9 +57,9 @@ def main(bg_dir: Path, depth_dir: Path, seg_dir: Path, font_dir: Path,
 
         try:
             res = RV3.render_text(img, depth, seg, area, label,
-                                  ninstance=INSTANCE_PER_IMAGE, viz=viz)
-        except:
-            continue
+                                    ninstance=INSTANCE_PER_IMAGE, viz=viz)
+        except Exception as e:
+            print(f'[ERROR] {image_path}: {e}')
 
         # print(res)
         if len(res) > 0:
