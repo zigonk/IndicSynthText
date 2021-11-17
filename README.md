@@ -1,48 +1,63 @@
 # SynthText
-Refactored code for generating Indic synthetic text images as described in ["Synthetic Data for Text Localisation in Natural Images", Ankush Gupta, Andrea Vedaldi, Andrew Zisserman, CVPR 2016](http://www.robots.ox.ac.uk/~vgg/data/scenetext/).
 
-
-### Synthetic Scene-Text Image Samples
-![Synthetic Scene-Text Samples](medium_art.png)
-
-The code in the `master` branch is for Python2. Python3 is supported in the `python3` branch.
-
-The main dependencies are:
-
+```code
+pip install "pillow>=8.4"
+pip install gdown
 ```
-pygame, opencv (cv2), PIL (Image), numpy, matplotlib, h5py, scipy, kaggle
-```
-### Downloading Data needed for generation
-In the project directory run
-```
-kaggle datasets download azharshaikh/SynthTextGen
-```
-This will download a zip file named `SynthTextGen`. Ensure you have unzipped file the to ./SynthTextGen. This data file includes:
 
-  - **dset.h5**: This is a sample h5 file which contains a set of 5 images along with their depth and segmentation information. Note, this is just given as an example; you are encouraged to add more images (along with their depth and segmentation information) to this database for your own use.
-  - **data/fonts**: Sample fonts for the indic languages(add more fonts to this folder and then update `fonts/fontlist.txt` with their paths).
-  - **data/newsgroup**: Text cropus for the indic languages used to render scene text. Look inside `text_utils.py` to see how the text inside this file is used by the renderer.
-  - **data/models/colors_new.cp**: Color-model (foreground/background text color model), learnt from the IIIT-5K word dataset.
-  - **data/models**: Other cPickle files (**char\_freq.cp**: frequency of each character in the text dataset; **font\_px2pt.cp**: conversion from pt to px for various fonts: If you add a new font, make sure that the corresponding model is present in this file, if not you can add it by adapting `invert_font_size.py`).
-
-### Generating samples
-After downloading data run 
-
+```code
+git clone https://github.com/VinhLoiIT/IndicSynthText.git
 ```
-python gen.py --viz --output_path path/to/store/generated_images --total_samples --lang
+
+# prepare data
+
+Download processed data
 ```
-This script will generate scene-text image samples and store them in an lmdb file at the output path specified. If the `--viz` option is specified, the generated output will be visualized as the script is being run; omit the `--viz` option to turn-off the visualizations. If you want to visualize later, run:
+cd IndicSynthText
+mkdir -p aic_data
+cd aic_data
 
+mkdir -p models
+echo "Download colors_new.cp"
+gdown https://drive.google.com/uc?id=1eEPexgSClRn0SPB7BIqs4r8F5mE68h1l -O models/colors_new.cp
+
+echo "Download fonts"
+gdown https://drive.google.com/uc?id=1bB4tO0AX9cxca0gIdHFIeWid6qLegiMm
+
+echo "Download background"
+gdown https://drive.google.com/uc?id=1-4xpbU8Yq4kRHIzBLw-c8j-FpbxDAskp
+
+echo "Download depths"
+gdown https://drive.google.com/uc?id=1HdMoDrTHu5wXs7KKihnxp2rfmcBCI7Rz 
+
+echo "Download segs"
+gdown https://drive.google.com/uc?id=1-2bOO-eREbtRqMdpj7oxnaGMKgOaIclL 
+
+echo "Unzip bg.zip"
+unzip bg.zip > /dev/null
+
+echo "Unzip depths.zip"
+unzip depths.zip > /dev/null
+
+echo "Unzip segs.zip"
+unzip segs.zip > /dev/null
+
+echo "Unzip font.zip"
+unzip font.zip > /dev/null
+
+echo "Back to repo root dir"
+cd ..
+echo "Current dir:" $(pwd)
 ```
-python visualize_results.py
+
+# Run
+
+You might run this code once to get `font_px2pt.pkl`
 ```
-### Adding a new language
-- Download the language font (.ttf file) to data/fonts/ (ex data/fonts/hin.ttf) then update fonts/fontlist.txt with the font's path.
-- Create a new language font model (.cp file) using invert_font_size.py and the laguage font and place it in data/models/
-- Add a language text file (like wikipedia articles, news etc) to data/newsgroup with the name newsgrouplangname(ex newsgrouphin)
-- *make sure the same lang name is used for both the font and text files.*
-- To start generating samples refer to the *Generating samples* section.
-
-Additional Instructions can be found [here](https://github.com/ankush-me/SynthText)
+python invert_font_size.py aic_data/vin-vnm.txt aic_data/Font --output_dir aic_data/models
+```
 
 
+```code
+python gen_new.py ./aic_data --bg_dir ./aic_data/bg --depth_dir ./aic_data/depths --seg_dir ./aic_data/segs --text_path aic_data/vin-vnm.txt --output_dir icdar_outputs --viz
+```
