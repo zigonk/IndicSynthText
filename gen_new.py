@@ -55,11 +55,11 @@ def main(bg_dir: Path, depth_dir: Path, seg_dir: Path, font_dir: Path,
             area = data['area']
             label = data['label']
 
-        try:
-            res = RV3.render_text(img, depth, seg, area, label,
-                                    ninstance=INSTANCE_PER_IMAGE, viz=viz)
-        except Exception as e:
-            print(f'[ERROR] {image_path}: {e}')
+        # try:
+        res = RV3.render_text(img, depth, seg, area, label,
+                                ninstance=INSTANCE_PER_IMAGE, viz=viz)
+        # except Exception as e:
+        #     print(f'[ERROR] {image_path}: {e}')
 
         # print(res)
         if len(res) > 0:

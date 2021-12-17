@@ -415,10 +415,19 @@ class RendererV3(object):
             return  # None
 
         text_mask, loc, bb, text = render_res
-
+        print('------------CHECK PLACE TEXT------------')
+        mask_pts = np.where(text_mask > 0)
+        bbox_margin = np.asarray([5, 5])
+        bbox = np.asarray([[min(mask_pts[1]), min(mask_pts[0])], [max(mask_pts[1]), max(mask_pts[0])]])
+        
+        black_img = np.zeros_like(text_mask)
+        bbox_mask = cv2.rectangle(black_img, bbox[0] - bbox_margin, bbox[1] + bbox_margin, 255, -1)
+        print('------------------------')
+        # black_img = np.zeros(collision_mask.shape)
+        # bbox_mask = cv2.fillPoly(black_img, bb, )
         # update the collision mask with text:
-        cv2.bitwise_or(collision_mask, 255, dst=collision_mask, mask=text_mask)
-        collision_mask += (255 * (text_mask > 0)).astype('uint8')
+        cv2.bitwise_or(collision_mask, 255, dst=collision_mask, mask=bbox_mask)
+        collision_mask += (255 * (bbox_mask > 0)).astype('uint8')
         # plt.imshow(collision_mask)
         # plt.show()
         # cv2.imshow('CollisionMask', collision_mask)
@@ -462,7 +471,7 @@ class RendererV3(object):
             [x_min, y_max],
         ]).T  # 4, 2 -> 2, 4
         word_bbox = self.homographyBB(word_bbox[..., np.newaxis], Hinv)  # 2, 4, 1
-
+        print(word_bbox)
         # print('homography:', rot_mat_to_euler(H))
         word_rotation = -math.atan2(H[0,1], H[0,0]) * 180 / math.pi
         # word_rotation = -math.atan2(H[0,1], H[0,0]) * 180 / math.pi

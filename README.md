@@ -59,5 +59,12 @@ python invert_font_size.py aic_data/vin-vnm.txt aic_data/Font --output_dir aic_d
 
 
 ```code
-python gen_new.py ./aic_data --bg_dir ./aic_data/bg --depth_dir ./aic_data/depths --seg_dir ./aic_data/segs --text_path aic_data/vin-vnm.txt --output_dir icdar_outputs --viz
+python gen_new.py ./aic_data \
+--bg_dir ./aic_data/bg \
+--depth_dir ./aic_data/depths \
+--seg_dir ./aic_data/segs \
+--text_path aic_data/vin-vnm.txt \
+--output_dir icdar_outputs \
+--viz \
+--font_dir aic_data/Font
 ```

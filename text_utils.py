@@ -291,6 +291,7 @@ class RenderFont(object):
             safemask = intersect < 1e8
 
             if not np.any(safemask):  # no collision-free position:
+                print("COLLISION!!!")
                 # warn("COLLISION!!!")
                 return back_arr, locs[: i], bbs[: i], order[: i]
 
